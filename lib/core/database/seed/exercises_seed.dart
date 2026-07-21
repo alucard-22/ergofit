@@ -7,12 +7,15 @@ class ExercisesSeedData {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     return [
-      // ── CUELLO ────────────────────────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      //  CUELLO
+      // ══════════════════════════════════════════════════════════════════════
+
       ExercisesCompanion.insert(
         id: 'neck_lateral_tilt',
         name: 'Inclinación lateral de cuello',
         description:
-            'Alivia la tensión acumulada en el cuello por horas frente a la pantalla. Ideal para hacer cada 45 minutos de trabajo.',
+            'Lleva la oreja hacia el hombro para aliviar la tensión cervical acumulada por horas frente a la pantalla. Validado por fisioterapeuta.',
         benefit: 'Reduce tensión cervical',
         category: 'neck',
         difficulty: 'easy',
@@ -21,20 +24,44 @@ class ExercisesSeedData {
         hasAiCoach: const Value(true),
         emoji: '🦒',
         stepsJson: json.encode([
-          '🪑 POSICIÓN INICIAL — Siéntate en el borde de la silla con la espalda recta. Coloca ambos pies planos en el suelo. Relaja los hombros alejándolos de las orejas.',
-          '➡️ LADO DERECHO — Inhala profundo. Al exhalar, inclina lentamente la cabeza hacia el hombro derecho. No levantes el hombro para alcanzar la oreja. El estiramiento debe sentirse en el lado izquierdo del cuello.',
-          '⏱️ MANTÉN 20 SEGUNDOS — Respira normalmente. Con cada exhalación intenta relajar un poco más. Siente cómo se estira el músculo esternocleidomastoideo (el músculo largo del cuello).',
-          '↩️ VUELVE AL CENTRO — Inhala y regresa la cabeza al centro muy lentamente. Nunca hagas movimientos bruscos con el cuello.',
-          '⬅️ LADO IZQUIERDO — Repite el mismo proceso hacia el hombro izquierdo. Mantén otros 20 segundos respirando profundo.',
-          '🔄 REPITE — Realiza 3 repeticiones por cada lado. Al terminar, rota suavemente la cabeza haciendo pequeños círculos para relajar la zona.',
+          '🪑 POSICIÓN INICIAL — Siéntate erguido con la espalda recta. Relaja los hombros alejándolos de las orejas. Pies planos en el suelo.',
+          '➡️ LADO DERECHO — Lleva lentamente la oreja derecha hacia el hombro derecho. No levantes el hombro para alcanzarla. Siente el estiramiento en el lado izquierdo del cuello.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Respira lento y profundo. Con cada exhalación relaja un poco más. Si sientes dolor agudo, reduce el ángulo.',
+          '↩️ CENTRO — Regresa al centro lentamente. Nunca uses movimientos bruscos con el cuello.',
+          '⬅️ LADO IZQUIERDO — Lleva la oreja izquierda hacia el hombro izquierdo. Mantén otros 20–30 segundos respirando profundo.',
+          '⚠️ ADVERTENCIA — Si aparece hormigueo, mareo o dolor intenso, detén el ejercicio inmediatamente y consulta con un profesional de salud.',
         ]),
         createdAt: now,
       ),
+
+      ExercisesCompanion.insert(
+        id: 'neck_flexion',
+        name: 'Flexión de cuello',
+        description:
+            'Baja el mentón hacia el pecho para estirar la musculatura posterior del cuello. Ideal para contrarrestar la postura de cabeza adelantada.',
+        benefit: 'Estira nuca y cervicales',
+        category: 'neck',
+        difficulty: 'easy',
+        position: 'seated',
+        durationSeconds: 60,
+        hasAiCoach: const Value(true),
+        emoji: '🧎',
+        stepsJson: json.encode([
+          '🪑 POSICIÓN INICIAL — Siéntate con la espalda recta. Relaja los hombros. Mira al frente con la barbilla paralela al suelo.',
+          '⬇️ BAJA EL MENTÓN — Lentamente baja el mentón hacia el pecho. Sientes el estiramiento en la nuca y la parte posterior del cuello.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Respira profundo. No fuerces el movimiento. La gravedad hace el trabajo.',
+          '⬆️ REGRESA — Sube la cabeza lentamente a la posición inicial. Haz una pausa de 5 segundos.',
+          '🔄 REPITE — Realiza 3 repeticiones. Este ejercicio es especialmente útil si pasas horas mirando hacia abajo el celular.',
+          '⚠️ ADVERTENCIA — Si aparece hormigueo en los brazos o mareo, detén el ejercicio y consulta con un profesional.',
+        ]),
+        createdAt: now,
+      ),
+
       ExercisesCompanion.insert(
         id: 'neck_rotation',
         name: 'Rotación de cuello',
         description:
-            'Moviliza las vértebras cervicales y mejora el rango de movimiento. Perfecto para contrarrestar la rigidez de mirar una pantalla fija.',
+            'Gira la cabeza de lado a lado para mejorar la movilidad cervical y reducir la rigidez por trabajo sedentario.',
         benefit: 'Mejora movilidad cervical',
         category: 'neck',
         difficulty: 'easy',
@@ -43,20 +70,21 @@ class ExercisesSeedData {
         hasAiCoach: const Value(true),
         emoji: '🔄',
         stepsJson: json.encode([
-          '🪑 POSICIÓN INICIAL — Siéntate erguido. Mantén la barbilla paralela al suelo durante todo el ejercicio. Los hombros deben estar completamente relajados y quietos.',
-          '➡️ GIRA A LA DERECHA — Exhala y gira la cabeza lentamente hacia la derecha hasta donde sea cómodo. No fuerces más allá de tu límite natural. Deberías sentir un leve estiramiento en el lado izquierdo del cuello.',
-          '⏱️ MANTÉN 10 SEGUNDOS — Respira normalmente. Mira hacia atrás sin mover los hombros. Si sientes dolor o mareo, reduce el rango de movimiento.',
-          '↩️ CENTRO — Inhala y regresa al centro con el mismo ritmo lento. Nunca uses rebotes o movimientos rápidos.',
-          '⬅️ GIRA A LA IZQUIERDA — Repite hacia el lado izquierdo. Mantén otros 10 segundos.',
-          '🔄 REPITE 5 VECES POR LADO — Cada repetición puedes intentar aumentar ligeramente el rango si te sientes cómodo. Al terminar, baja la cabeza suavemente hacia el pecho y mantén 5 segundos.',
+          '🪑 POSICIÓN INICIAL — Siéntate erguido. Mantén la barbilla paralela al suelo durante todo el ejercicio. Hombros relajados y quietos.',
+          '➡️ GIRA A LA DERECHA — Gira la cabeza lentamente hacia tu hombro derecho hasta donde sea cómodo. No fuerces más allá de tu límite.',
+          '⏱️ MANTÉN 15–20 SEGUNDOS — Respira normalmente. Mira hacia atrás sin mover los hombros.',
+          '↩️ CENTRO — Regresa al centro con el mismo ritmo lento.',
+          '⬅️ GIRA A LA IZQUIERDA — Repite hacia el lado izquierdo. Mantén otros 15–20 segundos.',
+          '⚠️ ADVERTENCIA — Si sientes dolor, mareo o pérdida de fuerza, detén el ejercicio y consulta con un profesional de salud.',
         ]),
         createdAt: now,
       ),
+
       ExercisesCompanion.insert(
         id: 'neck_chin_tuck',
         name: 'Retracción de mentón',
         description:
-            'Corrige la postura de "cabeza adelantada" que desarrollan el 90% de las personas que trabajan con computadora. Un ejercicio simple pero muy efectivo.',
+            'Corrige la postura de cabeza adelantada típica del trabajo con computadora. Simple pero muy efectivo con práctica diaria.',
         benefit: 'Corrige postura de cuello',
         category: 'neck',
         difficulty: 'easy',
@@ -65,22 +93,25 @@ class ExercisesSeedData {
         hasAiCoach: const Value(true),
         emoji: '🧠',
         stepsJson: json.encode([
-          '🪑 POSICIÓN INICIAL — Siéntate con la espalda recta mirando al frente. Imagina que una cuerda jala la parte superior de tu cabeza hacia el techo.',
-          '👁️ BUSCA UN PUNTO DE REFERENCIA — Elige un punto fijo al frente a la altura de tus ojos. Esto te ayudará a mantener la cabeza nivelada durante el movimiento.',
-          '↩️ RETRAE EL MENTÓN — Sin mover los hombros y sin bajar la cabeza, lleva el mentón hacia atrás como si quisieras hacer una doble papada. Deberías sentir un leve estiramiento en la base del cráneo.',
-          '⏱️ MANTÉN 5 SEGUNDOS — Respira normalmente. La sensación correcta es de "elongación" en la nuca, no de dolor.',
-          '➡️ SUELTA Y REPITE — Regresa a la posición inicial y repite. La diferencia entre la posición normal y la corregida es la que debes trabajar.',
-          '🔄 10 REPETICIONES — Realiza 10 repeticiones lentas y controladas. Este ejercicio es más efectivo si lo haces varias veces al día.',
+          '🪑 POSICIÓN INICIAL — Siéntate mirando al frente. Relaja los hombros. Elige un punto fijo a la altura de tus ojos.',
+          '↩️ RETRAE EL MENTÓN — Sin bajar la cabeza, lleva el mentón hacia atrás como haciendo una doble papada. Sientes elongación en la nuca.',
+          '⏱️ MANTÉN 5 SEGUNDOS — Respira normalmente. La sensación correcta es de elongación, no de dolor.',
+          '➡️ SUELTA Y REPITE — Regresa y repite 10 veces lentas y controladas.',
+          '✅ POSTURA FINAL — Mantén esta posición como hábito al trabajar. Es la postura cervical correcta.',
+          '⚠️ ADVERTENCIA — Si sientes dolor agudo o hormigueo, reduce el rango o consulta con un profesional.',
         ]),
         createdAt: now,
       ),
 
-      // ── HOMBROS ───────────────────────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      //  HOMBROS
+      // ══════════════════════════════════════════════════════════════════════
+
       ExercisesCompanion.insert(
         id: 'shoulder_rolls',
         name: 'Rotación de hombros',
         description:
-            'Descomprime los hombros y mejora la circulación en la zona superior. Muy efectivo para liberar la tensión acumulada por teclear durante horas.',
+            'Descomprime los hombros y mejora la circulación en la zona superior. Efectivo para liberar tensión por teclear durante horas.',
         benefit: 'Alivia tensión en hombros',
         category: 'shoulders',
         difficulty: 'easy',
@@ -89,20 +120,67 @@ class ExercisesSeedData {
         hasAiCoach: const Value(true),
         emoji: '🙆',
         stepsJson: json.encode([
-          '🪑 POSICIÓN INICIAL — Siéntate o párate cómodamente. Coloca los brazos relajados a los costados del cuerpo. Respira profundo para preparar la zona.',
-          '⬆️ ELEVA LOS HOMBROS — Inhala mientras subes ambos hombros hacia las orejas lo más que puedas. Mantén esta posición 2 segundos.',
-          '🔙 ROTA HACIA ATRÁS — Exhala mientras llevas los hombros hacia atrás y luego hacia abajo, completando un círculo amplio. Imagina que quieres unir los omóplatos detrás de tu espalda.',
-          '⏱️ RITMO LENTO — Cada círculo completo debe durar 3-4 segundos. No hagas los movimientos rápidos. La lentitud es lo que genera el beneficio.',
-          '🔄 10 ROTACIONES HACIA ATRÁS — Completa 10 rotaciones hacia atrás. Deberías sentir un ligero crujido o chasquido — es normal si no hay dolor.',
-          '➡️ 10 ROTACIONES HACIA ADELANTE — Repite en dirección contraria. Al terminar, sacude los brazos suavemente para relajar toda la zona.',
+          '🪑 POSICIÓN INICIAL — Siéntate o párate cómodamente. Brazos relajados a los costados.',
+          '⬆️ ELEVA LOS HOMBROS — Sube ambos hombros hacia las orejas. Mantén 2 segundos.',
+          '🔙 ROTA HACIA ATRÁS — Lleva los hombros hacia atrás y abajo completando un círculo. Imagina que unes los omóplatos.',
+          '⏱️ RITMO LENTO — Cada círculo debe durar 3–4 segundos. La lentitud genera el beneficio.',
+          '🔄 10 ROTACIONES — Completa 10 hacia atrás y 10 hacia adelante.',
+          '⚠️ ADVERTENCIA — Si aparece dolor agudo en el hombro, detén el ejercicio.',
         ]),
         createdAt: now,
       ),
+
+      ExercisesCompanion.insert(
+        id: 'shoulder_cross_stretch',
+        name: 'Estiramiento cruzado de hombro',
+        description:
+            'Estira el músculo deltoides y la cápsula articular del hombro. Recomendado por fisioterapeuta para aliviar tensión del trabajo de oficina.',
+        benefit: 'Estira deltoides y hombro',
+        category: 'shoulders',
+        difficulty: 'easy',
+        position: 'seated',
+        durationSeconds: 120,
+        hasAiCoach: const Value(false),
+        emoji: '🤝',
+        stepsJson: json.encode([
+          '🪑 POSICIÓN INICIAL — Siéntate o párate erguido con los hombros relajados.',
+          '➡️ BRAZO DERECHO — Lleva el brazo derecho extendido cruzando frente al pecho hacia el lado izquierdo.',
+          '🤝 AYUDA CON EL OTRO BRAZO — Usa el antebrazo izquierdo para empujar suavemente el brazo derecho más cerca del pecho.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Siente el estiramiento en la parte posterior del hombro derecho. Respira profundo.',
+          '⬅️ CAMBIA DE LADO — Repite con el brazo izquierdo cruzando hacia la derecha. Mantén otros 20–30 segundos.',
+          '⚠️ ADVERTENCIA — No fuerces si sientes dolor agudo en el hombro. Reduce la intensidad.',
+        ]),
+        createdAt: now,
+      ),
+
+      ExercisesCompanion.insert(
+        id: 'triceps_stretch',
+        name: 'Estiramiento de tríceps',
+        description:
+            'Estira el tríceps y la zona posterior del brazo. Especialmente útil para programadores que mantienen los brazos elevados al teclear.',
+        benefit: 'Estira tríceps y brazo posterior',
+        category: 'shoulders',
+        difficulty: 'easy',
+        position: 'seated',
+        durationSeconds: 120,
+        hasAiCoach: const Value(false),
+        emoji: '💪',
+        stepsJson: json.encode([
+          '🪑 POSICIÓN INICIAL — Siéntate o párate erguido. Espalda recta.',
+          '⬆️ BRAZO DERECHO — Lleva el brazo derecho por encima de la cabeza y flexiona el codo, dejando la mano caer hacia la espalda.',
+          '🤝 EMPUJE SUAVE — Con la mano izquierda, empuja suavemente el codo derecho hacia abajo y atrás. Sientes el estiramiento en la parte posterior del brazo.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Respira profundo. No bajes la cabeza hacia adelante.',
+          '⬅️ CAMBIA DE LADO — Repite con el brazo izquierdo. Mantén otros 20–30 segundos.',
+          '⚠️ ADVERTENCIA — Si sientes dolor en el codo o el hombro, reduce la presión aplicada.',
+        ]),
+        createdAt: now,
+      ),
+
       ExercisesCompanion.insert(
         id: 'chest_opener',
         name: 'Apertura de pecho',
         description:
-            'Contrarresta la postura encorvada típica del trabajo de escritorio. Abre el pecho y fortalece los músculos posturales de la espalda alta.',
+            'Entrelaza las manos detrás de la espalda y lleva los hombros hacia atrás para contrarrestar la postura encorvada del escritorio.',
         benefit: 'Corrige postura encorvada',
         category: 'shoulders',
         difficulty: 'easy',
@@ -111,22 +189,25 @@ class ExercisesSeedData {
         hasAiCoach: const Value(true),
         emoji: '🦅',
         stepsJson: json.encode([
-          '🪑 POSICIÓN INICIAL — Siéntate al borde de la silla, alejado del respaldo. Pies planos en el suelo, separados al ancho de las caderas.',
-          '🤝 ENTRELAZA LOS DEDOS — Lleva ambas manos detrás de la nuca (no detrás de la cabeza). Los codos deben apuntar hacia los lados.',
-          '🦅 ABRE EL PECHO — Inhala profundo mientras llevas los codos hacia atrás y el pecho hacia adelante. Imagina que quieres mostrar el logo de tu camiseta al frente.',
-          '⏱️ MANTÉN 20 SEGUNDOS — Sigue respirando normalmente. Con cada inhalación sientes el pecho abrirse más. Con cada exhalación los hombros se relajan más hacia atrás.',
-          '🔍 QUÉ DEBES SENTIR — Estiramiento en el pecho (pectorales) y en la parte frontal de los hombros. Si sientes dolor en el cuello, baja ligeramente el mentón.',
-          '🔄 REPITE 4-5 VECES — Descansa 5 segundos entre cada repetición. Con la práctica diaria, este ejercicio mejora visiblemente la postura en 2-3 semanas.',
+          '🪑 POSICIÓN INICIAL — Siéntate al borde de la silla. Pies planos en el suelo. Espalda recta.',
+          '🤝 ENTRELAZA LAS MANOS — Lleva ambas manos detrás de la espalda baja y entrelaza los dedos.',
+          '🦅 ABRE EL PECHO — Inhala mientras llevas los hombros hacia atrás y el pecho hacia adelante. Las manos entrelazadas se alejan de tu espalda.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Con cada inhalación el pecho se abre más. Con cada exhalación los hombros se relajan más atrás.',
+          '🔍 QUÉ DEBES SENTIR — Estiramiento en el pecho y la parte frontal de los hombros. Si sientes dolor en el cuello, baja ligeramente el mentón.',
+          '⚠️ ADVERTENCIA — No arquees en exceso la zona lumbar. Mantén el abdomen ligeramente activado.',
         ]),
         createdAt: now,
       ),
 
-      // ── ESPALDA ───────────────────────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      //  ESPALDA
+      // ══════════════════════════════════════════════════════════════════════
+
       ExercisesCompanion.insert(
         id: 'back_cat_cow',
         name: 'Gato-vaca en silla',
         description:
-            'Versión adaptada para silla del clásico ejercicio de yoga. Moviliza toda la columna vertebral y libera la tensión lumbar acumulada.',
+            'Versión adaptada para silla del clásico ejercicio de yoga. Moviliza toda la columna y libera la tensión lumbar acumulada.',
         benefit: 'Moviliza toda la columna',
         category: 'back',
         difficulty: 'easy',
@@ -135,20 +216,21 @@ class ExercisesSeedData {
         hasAiCoach: const Value(true),
         emoji: '🐱',
         stepsJson: json.encode([
-          '🪑 POSICIÓN INICIAL — Siéntate al borde de la silla. Pies planos en el suelo, rodillas a 90°. Coloca las manos sobre las rodillas con los codos ligeramente doblados.',
-          '🐄 POSICIÓN VACA (inhalación) — Inhala profundo. Mientras inhalas, arquea la espalda hacia adelante, lleva el pecho hacia el frente y la mirada ligeramente hacia arriba. La pelvis se inclina hacia adelante.',
-          '🐱 POSICIÓN GATO (exhalación) — Exhala completamente. Mientras exhalas, redondea toda la espalda hacia afuera, mete el ombligo hacia la columna y lleva la mirada hacia el ombligo. La pelvis se inclina hacia atrás.',
-          '🌊 FLUYE CON LA RESPIRACIÓN — El movimiento lo dicta tu respiración, no al revés. Inhalación = vaca. Exhalación = gato. Nunca contengas el aliento.',
-          '⏱️ RITMO SUAVE — Cada ciclo completo (vaca + gato) debe durar 6-8 segundos. Muévete como olas del mar, sin pausas bruscas entre posiciones.',
-          '🔄 10 CICLOS COMPLETOS — Al terminar, quédate en posición neutral y nota la diferencia en tu columna. Deberías sentirla más libre y menos rígida.',
+          '🪑 POSICIÓN INICIAL — Siéntate al borde de la silla. Pies planos. Manos sobre las rodillas.',
+          '🐄 POSICIÓN VACA — Inhala: arquea la espalda hacia adelante, saca el pecho y lleva la mirada ligeramente hacia arriba.',
+          '🐱 POSICIÓN GATO — Exhala: redondea la espalda, mete el ombligo y lleva la mirada hacia abajo.',
+          '🌊 FLUYE CON LA RESPIRACIÓN — El movimiento lo dicta tu respiración. Inhalación = vaca. Exhalación = gato.',
+          '🔄 10 CICLOS — Cada ciclo debe durar 6–8 segundos. Muévete como olas del mar.',
+          '⚠️ ADVERTENCIA — Si sientes dolor lumbar agudo, reduce el rango de movimiento.',
         ]),
         createdAt: now,
       ),
+
       ExercisesCompanion.insert(
         id: 'back_seated_twist',
         name: 'Torsión espinal sentado',
         description:
-            'Descomprime los discos intervertebrales y aumenta la flexibilidad rotacional. Muy recomendado para personas que pasan más de 4 horas sentadas.',
+            'Descomprime los discos intervertebrales y aumenta la flexibilidad rotacional de la columna.',
         benefit: 'Descomprime la columna',
         category: 'back',
         difficulty: 'easy',
@@ -157,22 +239,117 @@ class ExercisesSeedData {
         hasAiCoach: const Value(false),
         emoji: '🌀',
         stepsJson: json.encode([
-          '🪑 POSICIÓN INICIAL — Siéntate erguido sin apoyar la espalda en el respaldo. Los pies bien plantados en el suelo. Inhala para alargar la columna.',
-          '⬅️ GIRA A LA IZQUIERDA — Coloca la mano derecha en el muslo izquierdo. La mano izquierda puede apoyarse en el respaldo de la silla si la alcanzas.',
-          '🌀 REALIZA LA TORSIÓN — Exhala mientras giras el torso hacia la izquierda desde la cintura. La cabeza acompaña el movimiento mirando por encima del hombro izquierdo.',
-          '⏱️ MANTÉN 25-30 SEGUNDOS — Respira profundo. Con cada inhalación crece un poco más hacia arriba. Con cada exhalación gira un poco más si el cuerpo lo permite. Nunca fuerces.',
-          '🔍 QUÉ DEBES SENTIR — Una sensación de torsión agradable a lo largo de toda la columna. Si sientes dolor agudo o punzante, reduce el rango de movimiento inmediatamente.',
-          '➡️ REPITE AL LADO DERECHO — Regresa al centro con una inhalación y repite hacia el lado derecho. Mantén otros 25-30 segundos.',
+          '🪑 POSICIÓN INICIAL — Siéntate erguido sin apoyar la espalda. Pies en el suelo. Inhala para alargar la columna.',
+          '⬅️ GIRA A LA IZQUIERDA — Coloca la mano derecha en el muslo izquierdo. Gira el torso lentamente hacia la izquierda.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Respira profundo. Con cada inhalación crece hacia arriba. Con cada exhalación gira un poco más.',
+          '↩️ CENTRO — Regresa al centro con una inhalación.',
+          '➡️ REPITE AL LADO DERECHO — Mantén otros 20–30 segundos.',
+          '⚠️ ADVERTENCIA — Si sientes dolor agudo o punzante, reduce el rango inmediatamente.',
         ]),
         createdAt: now,
       ),
 
-      // ── OJOS ──────────────────────────────────────────────────────────────
+      ExercisesCompanion.insert(
+        id: 'back_child_pose',
+        name: 'Postura del niño',
+        description:
+            'Estiramiento profundo de la espalda baja, caderas y muslos. Recomendado por fisioterapeuta para aliviar tensión lumbar.',
+        benefit: 'Estira espalda baja y caderas',
+        category: 'back',
+        difficulty: 'easy',
+        position: 'standing',
+        durationSeconds: 60,
+        hasAiCoach: const Value(false),
+        emoji: '🧘',
+        stepsJson: json.encode([
+          '🧎 POSICIÓN INICIAL — Arrodíllate en el suelo. Las rodillas pueden estar juntas o separadas al ancho de las caderas.',
+          '⬇️ BAJA — Siéntate sobre los talones y estira los brazos hacia adelante sobre el suelo. La frente puede tocar el suelo.',
+          '⏱️ MANTÉN 30–60 SEGUNDOS — Respira profundo. Siente cómo la espalda baja se estira con cada exhalación.',
+          '🔍 QUÉ DEBES SENTIR — Estiramiento suave en la espalda baja, caderas y hombros. No debe doler.',
+          '⬆️ REGRESA — Sube lentamente apoyándote en las manos. No te levantes bruscamente.',
+          '⚠️ ADVERTENCIA — Evita este ejercicio si tienes problemas en las rodillas. Consulta con un profesional si tienes dolor lumbar severo.',
+        ]),
+        createdAt: now,
+      ),
+
+      ExercisesCompanion.insert(
+        id: 'back_knees_to_chest',
+        name: 'Rodillas al pecho',
+        description:
+            'Alivia la tensión lumbar y estira la zona glútea. Recomendado por fisioterapeuta para personas con dolor de espalda baja.',
+        benefit: 'Alivia tensión lumbar',
+        category: 'back',
+        difficulty: 'easy',
+        position: 'standing',
+        durationSeconds: 60,
+        hasAiCoach: const Value(false),
+        emoji: '🦵',
+        stepsJson: json.encode([
+          '🛌 POSICIÓN INICIAL — Acuéstate boca arriba en una superficie firme (colchoneta o suelo con alfombra).',
+          '🦵 LLEVA LAS RODILLAS — Lleva una o ambas rodillas hacia el pecho. Abraza las rodillas con los brazos.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Respira profundo. Siente el estiramiento en la zona lumbar y glúteos.',
+          '🔄 ALTERNA — Puedes hacerlo con una rodilla a la vez para mayor control.',
+          '⬇️ BAJA LENTAMENTE — Baja los pies al suelo con cuidado. Rueda hacia un lado antes de levantarte.',
+          '⚠️ ADVERTENCIA — Si sientes dolor agudo en la espalda o las rodillas, detén el ejercicio.',
+        ]),
+        createdAt: now,
+      ),
+
+      ExercisesCompanion.insert(
+        id: 'back_lumbar_rotation',
+        name: 'Rotación lumbar',
+        description:
+            'Estira los músculos lumbares y mejora la movilidad rotacional de la columna. Recomendado por fisioterapeuta.',
+        benefit: 'Estira músculos lumbares',
+        category: 'back',
+        difficulty: 'easy',
+        position: 'standing',
+        durationSeconds: 120,
+        hasAiCoach: const Value(false),
+        emoji: '🌀',
+        stepsJson: json.encode([
+          '🛌 POSICIÓN INICIAL — Acuéstate boca arriba con las rodillas dobladas y los pies planos en el suelo.',
+          '⬅️ RODILLAS A LA IZQUIERDA — Deja caer ambas rodillas lentamente hacia el lado izquierdo. Mantén los hombros apoyados en el suelo.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Respira profundo. Siente el estiramiento en la zona lumbar y la cadera.',
+          '↩️ CENTRO — Regresa las rodillas al centro lentamente.',
+          '➡️ RODILLAS A LA DERECHA — Repite hacia el lado derecho. Mantén otros 20–30 segundos.',
+          '⚠️ ADVERTENCIA — Si sientes dolor agudo en la espalda o las caderas, reduce el rango de movimiento.',
+        ]),
+        createdAt: now,
+      ),
+
+      ExercisesCompanion.insert(
+        id: 'back_lateral_stretch',
+        name: 'Estiramiento lateral de tronco',
+        description:
+            'Estira los músculos intercostales y el cuadrado lumbar. Alivia la tensión lateral acumulada por sentarse por horas.',
+        benefit: 'Estira costados y zona lumbar',
+        category: 'back',
+        difficulty: 'easy',
+        position: 'standing',
+        durationSeconds: 120,
+        hasAiCoach: const Value(false),
+        emoji: '↔️',
+        stepsJson: json.encode([
+          '🧍 POSICIÓN INICIAL — De pie con los pies separados al ancho de las caderas. Brazos a los costados.',
+          '⬆️ BRAZO DERECHO — Eleva el brazo derecho por encima de la cabeza.',
+          '⬅️ INCLÍNATE — Inclínate lentamente hacia el lado izquierdo. Siente el estiramiento en todo el costado derecho.',
+          '⏱️ MANTÉN 20–30 SEGUNDOS — Respira profundo. Con cada exhalación profundiza suavemente el estiramiento.',
+          '↩️ REGRESA Y CAMBIA — Vuelve al centro y repite con el brazo izquierdo hacia el lado derecho.',
+          '⚠️ ADVERTENCIA — Mantén las caderas niveladas. No te inclines hacia adelante ni hacia atrás.',
+        ]),
+        createdAt: now,
+      ),
+
+      // ══════════════════════════════════════════════════════════════════════
+      //  OJOS
+      // ══════════════════════════════════════════════════════════════════════
+
       ExercisesCompanion.insert(
         id: 'eyes_20_20_20',
         name: 'Regla 20-20-20',
         description:
-            'El método más respaldado científicamente para prevenir la fatiga visual digital. Cada 20 minutos de pantalla, 20 segundos mirando a 20 pies (6 metros).',
+            'El método más respaldado científicamente para prevenir la fatiga visual digital. Cada 20 minutos, 20 segundos a 6 metros.',
         benefit: 'Reduce fatiga visual digital',
         category: 'eyes',
         difficulty: 'easy',
@@ -181,20 +358,21 @@ class ExercisesSeedData {
         hasAiCoach: const Value(false),
         emoji: '👁️',
         stepsJson: json.encode([
-          '⏰ CUÁNDO APLICARLA — Cada 20 minutos de trabajo continuo frente a la pantalla. Puedes configurar una alarma en ErgoFit para que te recuerde.',
-          '👀 BUSCA UN PUNTO LEJANO — Identifica un objeto a al menos 6 metros de distancia (una ventana, un cuadro en la pared, un árbol afuera). Cuanto más lejos, mejor.',
-          '🎯 ENFOCA ESE PUNTO — Mira directamente ese objeto durante 20 segundos completos. El músculo del ojo (ciliar) necesita relajarse después de enfocar de cerca por mucho tiempo.',
-          '😌 PARPADEA CONSCIENTEMENTE — Cuando miramos pantallas parpadeamos un 60% menos de lo normal. Durante estos 20 segundos, parpadea cada 3-4 segundos para hidratar los ojos.',
-          '🌑 CIERRE OPCIONAL — Si los ojos están muy cansados, ciérralos suavemente los últimos 5 segundos. La oscuridad total da el mayor descanso.',
-          '✅ REANUDA TU TRABAJO — Vuelve a tu pantalla. Tu enfoque y productividad deberían estar un poco más frescos. Recuerda: en 20 minutos, repite.',
+          '⏰ CUÁNDO — Cada 20 minutos de trabajo continuo frente a la pantalla.',
+          '👀 BUSCA UN PUNTO LEJANO — Un objeto a al menos 6 metros de distancia.',
+          '🎯 ENFOCA ESE PUNTO — Mira directamente durante 20 segundos completos.',
+          '😌 PARPADEA — Parpadea conscientemente cada 3–4 segundos para hidratar los ojos.',
+          '🌑 CIERRE OPCIONAL — Si los ojos están muy cansados, ciérralos los últimos 5 segundos.',
+          '✅ REANUDA — Vuelve a tu pantalla. Repite en 20 minutos.',
         ]),
         createdAt: now,
       ),
+
       ExercisesCompanion.insert(
         id: 'eyes_palming',
         name: 'Palmeo ocular',
         description:
-            'Técnica de relajación ocular profunda usada en yoga y optometría conductual. El calor de las palmas relaja los músculos oculares tensos.',
+            'Técnica de relajación ocular profunda usando el calor natural de las manos para relajar los músculos oculares.',
         benefit: 'Relaja músculos oculares',
         category: 'eyes',
         difficulty: 'easy',
@@ -203,22 +381,25 @@ class ExercisesSeedData {
         hasAiCoach: const Value(false),
         emoji: '🖐️',
         stepsJson: json.encode([
-          '🤲 PREPARA LAS MANOS — Frota vigorosamente las palmas de las manos entre sí durante 10-15 segundos hasta que sientas calor en ellas. Ese calor es lo que va a relajar tus ojos.',
-          '👁️ CIERRA LOS OJOS — Cierra los ojos suavemente. No los aprietes.',
-          '🙏 CUBRE LOS OJOS — Coloca las palmas calientes sobre los ojos sin presionar los globos oculares. Los dedos deben descansar en la frente. Que quede oscuridad total.',
-          '🌑 OSCURIDAD Y CALOR — Relájate en esa oscuridad cálida. Si ves patrones de luz o colores, es normal — son las células de la retina descansando.',
-          '🌬️ RESPIRA PROFUNDO — Haz 4-5 respiraciones lentas y profundas. Con cada exhalación imagina que la tensión sale de tus ojos y de tu frente.',
-          '👀 ABRE LENTAMENTE — Retira las manos y abre los ojos muy despacio hacia una zona de poca luz. Notarás los colores más vívidos y la visión más nítida.',
+          '🤲 FROTA LAS MANOS — Frota las palmas entre sí 10–15 segundos hasta sentir calor.',
+          '👁️ CIERRA LOS OJOS — Cierra los ojos suavemente.',
+          '🙏 CUBRE LOS OJOS — Coloca las palmas calientes sobre los ojos sin presionar los globos oculares.',
+          '🌑 OSCURIDAD Y CALOR — Relájate en esa oscuridad cálida durante 1 minuto.',
+          '🌬️ RESPIRA — Haz 4–5 respiraciones lentas y profundas.',
+          '👀 ABRE LENTAMENTE — Retira las manos y abre los ojos hacia una zona de poca luz.',
         ]),
         createdAt: now,
       ),
 
-      // ── MUÑECAS ───────────────────────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      //  MUÑECAS
+      // ══════════════════════════════════════════════════════════════════════
+
       ExercisesCompanion.insert(
         id: 'wrist_extension_stretch',
         name: 'Estiramiento de muñecas',
         description:
-            'El ejercicio más importante para prevenir el síndrome del túnel carpiano. Estira el nervio mediano y los tendones flexores que se tensan al escribir.',
+            'Previene el síndrome del túnel carpiano estirando el nervio mediano y los tendones flexores tensados por escribir.',
         benefit: 'Previene túnel carpiano',
         category: 'wrists',
         difficulty: 'easy',
@@ -227,20 +408,21 @@ class ExercisesSeedData {
         hasAiCoach: const Value(true),
         emoji: '🤲',
         stepsJson: json.encode([
-          '💪 POSICIÓN INICIAL — Extiende el brazo derecho al frente, paralelo al suelo, con la palma mirando hacia afuera (como haciendo el gesto de "stop").',
-          '🤝 APLICA LA TENSIÓN — Con la mano izquierda, toma los dedos de la mano derecha y jálalos suavemente hacia tu cuerpo. El codo debe permanecer estirado.',
-          '🔍 QUÉ DEBES SENTIR — Estiramiento en la palma de la mano, muñeca y antebrazo interno. Si sientes hormigueo en los dedos, reduce la intensidad — es señal de que estás cerca del límite.',
-          '⏱️ MANTÉN 20 SEGUNDOS — Respira normalmente. La tensión debe ser suave pero constante. Nunca apliques fuerza brusca en las articulaciones de la muñeca.',
-          '↩️ INVERSIÓN — Ahora flexiona la muñeca hacia abajo (dedos apuntando al suelo) y usa la otra mano para jalar suavemente los dedos hacia ti. Mantén otros 15 segundos.',
-          '🔄 REPITE CON LA IZQUIERDA — Cambia de brazo y repite todo el proceso. Finaliza sacudiendo suavemente las manos durante 10 segundos.',
+          '💪 POSICIÓN INICIAL — Extiende el brazo derecho al frente con la palma mirando hacia afuera (gesto de "stop").',
+          '🤝 APLICA TENSIÓN — Con la mano izquierda, jala suavemente los dedos hacia tu cuerpo. Codo estirado.',
+          '🔍 QUÉ DEBES SENTIR — Estiramiento en la palma, muñeca y antebrazo interno. Si hay hormigueo, reduce la intensidad.',
+          '⏱️ MANTÉN 20 SEGUNDOS — Tensión suave y constante. Nunca apliques fuerza brusca.',
+          '↩️ INVERSIÓN — Flexiona la muñeca hacia abajo y jala los dedos. Mantén 15 segundos.',
+          '🔄 CAMBIA DE BRAZO — Repite con el brazo izquierdo. Finaliza sacudiendo las manos 10 segundos.',
         ]),
         createdAt: now,
       ),
+
       ExercisesCompanion.insert(
         id: 'wrist_circles',
         name: 'Círculos de muñeca',
         description:
-            'Lubrica las articulaciones de la muñeca con líquido sinovial y mejora la circulación en manos y dedos. Ideal antes y después de sesiones largas de escritura.',
+            'Lubrica las articulaciones de la muñeca con líquido sinovial y mejora la circulación en manos y dedos.',
         benefit: 'Lubrica articulaciones',
         category: 'wrists',
         difficulty: 'easy',
@@ -249,22 +431,25 @@ class ExercisesSeedData {
         hasAiCoach: const Value(false),
         emoji: '⭕',
         stepsJson: json.encode([
-          '✊ POSICIÓN INICIAL — Cierra ambas manos en puños suaves (no apretados). Los codos pueden estar flexionados a 90° o los brazos extendidos al frente.',
-          '🔄 CÍRCULOS HACIA LA DERECHA — Describe círculos amplios y lentos con ambas muñecas en dirección horaria. El movimiento viene de la muñeca, no del codo ni del hombro.',
-          '⏱️ 10 CÍRCULOS LENTOS — Cada círculo debe durar 2-3 segundos. La amplitud debe ser máxima — lleva la muñeca a todos sus rangos de movimiento.',
-          '🔄 CÍRCULOS HACIA LA IZQUIERDA — Invierte la dirección. Otros 10 círculos en sentido antihorario. Deberías escuchar o sentir pequeños chasquidos — es normal y beneficioso.',
-          '🖐️ ABRE Y CIERRA — Abre los dedos completamente separándolos, mantén 2 segundos, y ciérralos en puño. Repite 5 veces para activar la circulación.',
-          '💨 SACUDIDA FINAL — Sacude ambas manos durante 10 segundos como si estuvieras secándolas sin toalla. Esto termina de activar la circulación.',
+          '✊ POSICIÓN INICIAL — Cierra ambas manos en puños suaves.',
+          '🔄 CÍRCULOS A LA DERECHA — Describe círculos amplios con ambas muñecas en dirección horaria. 10 repeticiones.',
+          '⏱️ RITMO LENTO — Cada círculo debe durar 2–3 segundos. Amplitud máxima.',
+          '🔄 CÍRCULOS A LA IZQUIERDA — Invierte la dirección. Otros 10 círculos.',
+          '🖐️ ABRE Y CIERRA — Abre los dedos completamente, mantén 2 segundos y ciérralos. Repite 5 veces.',
+          '💨 SACUDIDA FINAL — Sacude ambas manos 10 segundos para activar la circulación.',
         ]),
         createdAt: now,
       ),
 
-      // ── RESPIRACIÓN ───────────────────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      //  RESPIRACIÓN
+      // ══════════════════════════════════════════════════════════════════════
+
       ExercisesCompanion.insert(
         id: 'breathing_box',
         name: 'Respiración cuadrada',
         description:
-            'Técnica de respiración usada por Navy SEALs y atletas de élite para reducir el estrés en segundos. Regula el sistema nervioso autónomo y mejora la concentración.',
+            'Técnica usada por equipos de alto rendimiento para reducir el estrés. Regula el sistema nervioso en minutos.',
         benefit: 'Reduce estrés y ansiedad',
         category: 'breathing',
         difficulty: 'easy',
@@ -273,12 +458,12 @@ class ExercisesSeedData {
         hasAiCoach: const Value(false),
         emoji: '🌬️',
         stepsJson: json.encode([
-          '🪑 PREPÁRATE — Siéntate con la espalda recta y los pies en el suelo. Coloca las manos sobre los muslos con las palmas hacia arriba. Cierra los ojos si te resulta cómodo.',
-          '💨 EXHALA PRIMERO — Antes de comenzar, exhala completamente vaciando los pulmones. Esto es importante para sincronizar el ciclo correctamente.',
-          '⬆️ INHALA — 4 SEGUNDOS — Inhala lentamente por la nariz contando mentalmente: 1... 2... 3... 4. Siente cómo se expande primero el abdomen, luego el pecho.',
-          '⏸️ RETÉN — 4 SEGUNDOS — Mantén el aire dentro contando: 1... 2... 3... 4. No te pongas rígido — mantén los hombros relajados.',
-          '⬇️ EXHALA — 4 SEGUNDOS — Exhala lentamente por la boca contando: 1... 2... 3... 4. Imagina que sueltas toda la tensión con el aire.',
-          '⏸️ RETÉN VACÍO — 4 SEGUNDOS — Mantén los pulmones vacíos contando: 1... 2... 3... 4. Luego reinicia el ciclo. Completa 4 ciclos mínimo — notarás la diferencia desde el segundo ciclo.',
+          '🪑 PREPÁRATE — Siéntate con la espalda recta. Manos sobre los muslos. Cierra los ojos si puedes.',
+          '💨 EXHALA PRIMERO — Exhala completamente para vaciar los pulmones.',
+          '⬆️ INHALA — 4 SEGUNDOS — Inhala contando: 1… 2… 3… 4. Abdomen primero, luego pecho.',
+          '⏸️ RETÉN — 4 SEGUNDOS — Mantén el aire: 1… 2… 3… 4. Hombros relajados.',
+          '⬇️ EXHALA — 4 SEGUNDOS — Exhala lentamente: 1… 2… 3… 4. Suelta toda la tensión.',
+          '⏸️ RETÉN VACÍO — 4 SEGUNDOS — Pulmones vacíos: 1… 2… 3… 4. Repite 4 ciclos mínimo.',
         ]),
         createdAt: now,
       ),
