@@ -13,6 +13,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/database/database_provider.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../exercises/presentation/providers/exercises_providers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class AiCoachScreen extends ConsumerStatefulWidget {
   final String exerciseId;
@@ -47,15 +48,39 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
   DateTime? _holdStart;
   bool _guidedDone = false;
   DateTime? _sessionStart;
+  _GuidedState _guidedState = _GuidedState.explaining;
+  bool _stepAnnounced = false;
+  // ── Text to Speech + contador ─────────────────────────────────────────────
+  final FlutterTts _tts = FlutterTts();
+  int _countdownSeconds = 0;
+  bool _isSpeaking = false;
 
   @override
   void initState() {
     super.initState();
+    _initTts();
     _checkPermission();
+  }
+
+  Future<void> _initTts() async {
+    await _tts.setLanguage('es-ES');
+    await _tts.setSpeechRate(0.85);
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.0);
+    _tts.setCompletionHandler(() {
+      _isSpeaking = false;
+    });
+  }
+
+  Future<void> _speak(String text) async {
+    if (_isSpeaking) await _tts.stop();
+    _isSpeaking = true;
+    await _tts.speak(text);
   }
 
   @override
   void dispose() {
+    _tts.stop();
     _camera?.stopImageStream();
     _camera?.dispose();
     _detector?.close();
@@ -164,47 +189,114 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
   void _processGuided(List<Pose> poses) {
     _sessionStart ??= DateTime.now();
     if (_guidedDone || _steps == null) return;
-    if (poses.isEmpty) {
-      _feedbackText = '📷 No te veo. Ubícate frente a la cámara.';
-      _feedbackLevel = _FeedbackLevel.warning;
-      _holdProgress = 0;
-      _holdStart = null;
+
+    final step = _steps![_stepIndex];
+
+    // ── Fase 1: Anunciar el paso con TTS ─────────────────────────────────────
+    if (!_stepAnnounced) {
+      _stepAnnounced  = true;
+      _guidedState    = _GuidedState.explaining;
+      _holdProgress   = 0;
+      _holdStart      = null;
+      _countdownSeconds = 0;
+      _feedbackText   = step.instruction;
+      _feedbackLevel  = _FeedbackLevel.neutral;
+
+      // Hablar el paso completo
+      _speak('Paso ${_stepIndex + 1}. ${step.title}. ${step.instruction}')
+          .then((_) {
+        if (mounted && !_guidedDone) {
+          setState(() => _guidedState = _GuidedState.detecting);
+        }
+      });
       return;
     }
-    final pose = poses.first;
-    final step = _steps![_stepIndex];
+
+    // ── Fase 2: Esperando que el TTS termine de hablar ────────────────────────
+    if (_guidedState == _GuidedState.explaining) {
+      _feedbackText  = step.instruction;
+      _feedbackLevel = _FeedbackLevel.neutral;
+      return;
+    }
+
+    // ── Fase 3: Detectar postura ──────────────────────────────────────────────
+    if (poses.isEmpty) {
+      _feedbackText     = 'No te veo. Ubícate frente a la cámara.';
+      _feedbackLevel    = _FeedbackLevel.warning;
+      _holdProgress     = 0;
+      _holdStart        = null;
+      _countdownSeconds = 0;
+      return;
+    }
+
+    final pose    = poses.first;
     final correct = step.check(pose, _calibration);
+
     if (correct) {
+      if (_guidedState == _GuidedState.detecting) {
+        _guidedState = _GuidedState.holding;
+        _speak('¡Bien! Mantén la posición.');
+      }
+
       _holdStart ??= DateTime.now();
       final ms = DateTime.now().difference(_holdStart!).inMilliseconds;
       _holdProgress = (ms / (step.holdSeconds * 1000)).clamp(0.0, 1.0);
-      _feedbackText = '¡Bien! Mantén la posición...';
-      _feedbackLevel = _FeedbackLevel.good;
-      _poseScore = (_holdProgress * 100).round();
+
+      // Contador regresivo
+      final remaining   = ((step.holdSeconds * 1000 - ms) / 1000).ceil();
+      final newCountdown = remaining.clamp(0, step.holdSeconds.ceil());
+
+      if (newCountdown != _countdownSeconds &&
+          newCountdown <= 3 && newCountdown > 0) {
+        _speak(newCountdown.toString());
+      }
+      _countdownSeconds = newCountdown;
+      _feedbackText     = '¡Mantén la posición!';
+      _feedbackLevel    = _FeedbackLevel.good;
+      _poseScore        = (_holdProgress * 100).round();
+
       if (_holdProgress >= 1.0) _advance();
     } else {
-      _holdStart = null;
-      _holdProgress = 0;
-      _feedbackText = step.instruction;
-      _feedbackLevel = _FeedbackLevel.info;
-      _poseScore = 0;
+      if (_guidedState == _GuidedState.holding) {
+        // Perdió la postura durante el hold
+        _guidedState = _GuidedState.detecting;
+        _speak('Ajusta la postura.');
+      }
+      _holdStart        = null;
+      _holdProgress     = 0;
+      _countdownSeconds = 0;
+      _feedbackText     = step.instruction;
+      _feedbackLevel    = _FeedbackLevel.info;
+      _poseScore        = 0;
     }
   }
 
-  void _advance() {
-    _holdStart = null;
-    _holdProgress = 0;
+void _advance() {
+    _holdStart        = null;
+    _holdProgress     = 0;
+    _countdownSeconds = 0;
+    _stepAnnounced    = false;
+    _guidedState      = _GuidedState.explaining;
+
     final total = _steps?.length ?? 0;
     if (_stepIndex < total - 1) {
       _stepIndex++;
     } else {
       _guidedDone = true;
+      _speak('¡Ejercicio completado! Excelente trabajo.');
       _camera?.stopImageStream();
       _saveGuidedSession();
     }
   }
-
-  void _skipStep() => setState(() => _advance());
+ void _skipStep() {
+    setState(() {
+      _tts.stop();
+      _isSpeaking    = false;
+      _stepAnnounced = false;
+      _guidedState   = _GuidedState.explaining;
+      _advance();
+    });
+  }
 
   Future<void> _saveGuidedSession() async {
     final seconds = _sessionStart == null
@@ -222,6 +314,32 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
     ));
   }
 
+// ── Helpers normalizados ──────────────────────────────────────────────────
+
+  double _sw(Pose p) {
+    final l = p.landmarks[PoseLandmarkType.leftShoulder];
+    final r = p.landmarks[PoseLandmarkType.rightShoulder];
+    if (l == null || r == null) return 1;
+    return (l.x - r.x).abs().clamp(1.0, double.infinity);
+  }
+
+  double _shoulderDiffNorm(Pose p) {
+    final l = p.landmarks[PoseLandmarkType.leftShoulder];
+    final r = p.landmarks[PoseLandmarkType.rightShoulder];
+    if (l == null || r == null) return 999;
+    return (l.y - r.y).abs() / _sw(p);
+  }
+
+  double _noseOffsetNorm(Pose p) {
+    final n = p.landmarks[PoseLandmarkType.nose];
+    final l = p.landmarks[PoseLandmarkType.leftShoulder];
+    final r = p.landmarks[PoseLandmarkType.rightShoulder];
+    if (n == null || l == null || r == null) return 999;
+    return (n.x - (l.x + r.x) / 2).abs() / _sw(p);
+  }
+
+  // ── Feedback genérico normalizado ─────────────────────────────────────────
+
   _Feedback _getFeedbackForCategory(Pose pose, String category) {
     final nose    = pose.landmarks[PoseLandmarkType.nose];
     final leftSh  = pose.landmarks[PoseLandmarkType.leftShoulder];
@@ -232,58 +350,281 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
     final rightWr = pose.landmarks[PoseLandmarkType.rightWrist];
     final leftHip = pose.landmarks[PoseLandmarkType.leftHip];
     final rightHip= pose.landmarks[PoseLandmarkType.rightHip];
+    final leftEar = pose.landmarks[PoseLandmarkType.leftEar];
+    final rightEar= pose.landmarks[PoseLandmarkType.rightEar];
+
     switch (category) {
-      case 'neck':      return _analyzeNeck(nose, leftSh, rightSh);
-      case 'shoulders': return _analyzeShoulders(leftSh, rightSh, leftEl, rightEl);
-      case 'wrists':    return _analyzeWrists(leftEl, rightEl, leftWr, rightWr);
-      case 'back':      return _analyzeBack(leftSh, rightSh, leftHip, rightHip, nose);
-      default:          return _generalFeedback(leftSh, rightSh);
+      case 'neck':
+        return _analyzeNeck(pose, nose, leftSh, rightSh, leftEar, rightEar);
+      case 'shoulders':
+        return _analyzeShoulders(pose, leftSh, rightSh, leftEl, rightEl);
+      case 'wrists':
+        return _analyzeWrists(pose, leftEl, rightEl, leftWr, rightWr);
+      case 'back':
+        return _analyzeBack(pose, leftSh, rightSh, leftHip, rightHip);
+      default:
+        return _generalFeedback(pose, leftSh, rightSh);
     }
   }
 
-  _Feedback _analyzeNeck(PoseLandmark? nose, PoseLandmark? l, PoseLandmark? r) {
-    if (nose == null || l == null || r == null) return _Feedback('📷 Muestra tu cabeza y hombros completos', _FeedbackLevel.neutral, 0);
-    final diff = (l.y - r.y).abs();
-    final offset = (nose.x - (l.x + r.x) / 2).abs();
-    if (diff > 50) return _Feedback('⚠️ HOMBROS DESNIVELADOS — Relaja el hombro más alto', _FeedbackLevel.warning, 40);
-    if (diff > 25) return _Feedback('📐 Hombro ligeramente elevado — respira y relájalo', _FeedbackLevel.info, 65);
-    if (offset > 60) return _Feedback('💪 ¡Buena inclinación! Siente el estiramiento en el lado opuesto', _FeedbackLevel.info, 75);
-    if (offset > 20) return _Feedback('✅ POSTURA CORRECTA — Mantén y respira profundo', _FeedbackLevel.good, 92);
-    return _Feedback('🎯 Inclina la cabeza hacia un hombro para comenzar', _FeedbackLevel.info, 60);
+  _Feedback _analyzeNeck(
+    Pose pose,
+    PoseLandmark? nose,
+    PoseLandmark? leftSh,
+    PoseLandmark? rightSh,
+    PoseLandmark? leftEar,
+    PoseLandmark? rightEar,
+  ) {
+    if (nose == null || leftSh == null || rightSh == null) {
+      return _Feedback(
+          'Muestra tu cabeza y hombros completos en el encuadre',
+          _FeedbackLevel.neutral, 0);
+    }
+
+    final sw = _sw(pose);
+    final diffNorm   = _shoulderDiffNorm(pose);
+    final offsetNorm = _noseOffsetNorm(pose);
+
+    // Hombros muy desnivelados
+    if (diffNorm > 0.30) {
+      return _Feedback(
+          'Hombros desnivelados — relaja el hombro más alto',
+          _FeedbackLevel.warning, 40);
+    }
+
+    // Hombro levemente elevado
+    if (diffNorm > 0.15) {
+      return _Feedback(
+          'Hombro ligeramente elevado — respira y relájalo',
+          _FeedbackLevel.info, 65);
+    }
+
+    // Detectar rotación usando orejas
+    if (leftEar != null && rightEar != null) {
+      final distLeft  = (nose.x - leftEar.x).abs();
+      final distRight = (nose.x - rightEar.x).abs();
+      final asymmetry = (distLeft - distRight).abs() / sw;
+
+      if (asymmetry > 0.30) {
+        return _Feedback(
+            'Buena rotación de cuello — mantén y respira profundo',
+            _FeedbackLevel.good, 90);
+      }
+    }
+
+    // Inclinación lateral
+    if (offsetNorm > 0.35) {
+      return _Feedback(
+          'Buena inclinación lateral — siente el estiramiento en el lado opuesto',
+          _FeedbackLevel.good, 88);
+    }
+
+    if (offsetNorm > 0.15) {
+      return _Feedback(
+          'Postura correcta — mantén y respira profundo',
+          _FeedbackLevel.good, 92);
+    }
+
+    // Flexión (mentón al pecho)
+    final noseY  = nose.y;
+    final shY    = (leftSh.y + rightSh.y) / 2;
+    final dropNorm = (noseY - shY) / sw;
+    if (dropNorm > -0.20) {
+      return _Feedback(
+          'Cabeza bien inclinada — siente el estiramiento en la nuca',
+          _FeedbackLevel.good, 90);
+    }
+
+    return _Feedback(
+        'Inclina la cabeza hacia un lado, al frente o gira para comenzar',
+        _FeedbackLevel.info, 60);
   }
 
-  _Feedback _analyzeShoulders(PoseLandmark? l, PoseLandmark? r, PoseLandmark? le, PoseLandmark? re) {
-    if (l == null || r == null) return _Feedback('📷 Muestra ambos hombros y parte del torso', _FeedbackLevel.neutral, 0);
-    final diff = (l.y - r.y).abs();
-    if (diff > 40) return _Feedback('⚠️ UN HOMBRO SUBE MÁS — Sincroniza el movimiento', _FeedbackLevel.warning, 45);
-    if (le != null && re != null && (le.y - re.y).abs() < 20 && diff < 15) return _Feedback('🏆 MOVIMIENTO EXCELENTE — Rotación simétrica perfecta', _FeedbackLevel.good, 96);
-    if (diff < 20) return _Feedback('✅ BUENA SIMETRÍA — Completa el círculo completo', _FeedbackLevel.good, 82);
-    return _Feedback('🔄 Mueve ambos hombros juntos, más lento = más beneficio', _FeedbackLevel.info, 60);
+  _Feedback _analyzeShoulders(
+    Pose pose,
+    PoseLandmark? leftSh,
+    PoseLandmark? rightSh,
+    PoseLandmark? leftEl,
+    PoseLandmark? rightEl,
+  ) {
+    if (leftSh == null || rightSh == null) {
+      return _Feedback(
+          'Muestra ambos hombros y parte del torso',
+          _FeedbackLevel.neutral, 0);
+    }
+
+    final sw       = _sw(pose);
+    final diffNorm = _shoulderDiffNorm(pose);
+
+    // Detectar brazo cruzado (shoulder_cross_stretch)
+    if (leftEl != null && rightEl != null) {
+      final lCrossed = (leftEl.x - rightSh.x) / sw;
+      final rCrossed = (rightEl.x - leftSh.x) / sw;
+
+      if (lCrossed < -0.10 || rCrossed > 0.10) {
+        return _Feedback(
+            'Brazo cruzado detectado — mantén el estiramiento 20 segundos',
+            _FeedbackLevel.good, 90);
+      }
+
+      // Detectar brazo elevado sobre la cabeza (triceps_stretch)
+      final lAbove = (leftSh.y - leftEl.y) / sw;
+      final rAbove = (rightSh.y - rightEl.y) / sw;
+
+      if (lAbove > 0.40 || rAbove > 0.40) {
+        return _Feedback(
+            'Brazo elevado — empuja suavemente el codo con la otra mano',
+            _FeedbackLevel.good, 88);
+      }
+
+      // Rotación simétrica (shoulder_rolls)
+      final elbowDiffNorm = (leftEl.y - rightEl.y).abs() / sw;
+      if (elbowDiffNorm < 0.10 && diffNorm < 0.10) {
+        return _Feedback(
+            'Movimiento excelente — rotación simétrica perfecta',
+            _FeedbackLevel.good, 96);
+      }
+    }
+
+    if (diffNorm > 0.25) {
+      return _Feedback(
+          'Un hombro sube más — sincroniza el movimiento',
+          _FeedbackLevel.warning, 45);
+    }
+
+    if (diffNorm < 0.12) {
+      return _Feedback(
+          'Buena simetría — completa el movimiento circular completo',
+          _FeedbackLevel.good, 82);
+    }
+
+    return _Feedback(
+        'Mueve ambos hombros juntos — más lento es más efectivo',
+        _FeedbackLevel.info, 60);
   }
 
-  _Feedback _analyzeWrists(PoseLandmark? le, PoseLandmark? re, PoseLandmark? lw, PoseLandmark? rw) {
-    if (le == null || lw == null) return _Feedback('📷 Extiende el brazo hacia la cámara', _FeedbackLevel.neutral, 0);
-    final angle = math.atan2((lw.y - le.y).abs(), (lw.x - le.x).abs()) * 180 / math.pi;
-    final len = ((le.x - lw.x) * (le.x - lw.x) + (le.y - lw.y) * (le.y - lw.y)).toDouble();
-    if (len < 1000) return _Feedback('📏 Extiende más el codo — debe estar casi recto', _FeedbackLevel.warning, 40);
-    if (angle > 155) return _Feedback('✅ BRAZO EXTENDIDO — Jala los dedos suavemente hacia ti', _FeedbackLevel.good, 88);
-    if (angle > 130) return _Feedback('📐 Casi perfecto — extiende un poco más el codo', _FeedbackLevel.info, 70);
-    return _Feedback('⚠️ CODO MUY DOBLADO — Estira el brazo completamente', _FeedbackLevel.warning, 35);
+  _Feedback _analyzeWrists(
+    Pose pose,
+    PoseLandmark? leftEl,
+    PoseLandmark? rightEl,
+    PoseLandmark? leftWr,
+    PoseLandmark? rightWr,
+  ) {
+    if (leftEl == null || leftWr == null) {
+      return _Feedback(
+          'Extiende el brazo hacia la cámara para analizar tu muñeca',
+          _FeedbackLevel.neutral, 0);
+    }
+
+    final sw = _sw(pose);
+
+    // Longitud del antebrazo normalizada
+    final armLenSq = ((leftEl.x - leftWr.x) * (leftEl.x - leftWr.x) +
+                      (leftEl.y - leftWr.y) * (leftEl.y - leftWr.y));
+    final armNorm = armLenSq / (sw * sw);
+
+    if (armNorm < 0.10) {
+      return _Feedback(
+          'Extiende más el codo — debe estar casi recto',
+          _FeedbackLevel.warning, 40);
+    }
+
+    // Flexión de muñeca (dedos hacia abajo)
+    final flexNorm = (leftWr.y - leftEl.y) / sw;
+    if (flexNorm > 0.10) {
+      return _Feedback(
+          'Buena flexión de muñeca — jala los dedos hacia ti',
+          _FeedbackLevel.good, 88);
+    }
+
+    // Extensión (brazo extendido, palma afuera)
+    if (armNorm > 0.20) {
+      return _Feedback(
+          'Brazo bien extendido — jala los dedos suavemente hacia ti',
+          _FeedbackLevel.good, 88);
+    }
+
+    if (armNorm > 0.12) {
+      return _Feedback(
+          'Casi perfecto — extiende un poco más el codo',
+          _FeedbackLevel.info, 70);
+    }
+
+    return _Feedback(
+        'Codo muy doblado — estira el brazo completamente',
+        _FeedbackLevel.warning, 35);
   }
 
-  _Feedback _analyzeBack(PoseLandmark? ls, PoseLandmark? rs, PoseLandmark? lh, PoseLandmark? rh, PoseLandmark? n) {
-    if (ls == null || rs == null) return _Feedback('📷 Muestra tu torso completo', _FeedbackLevel.neutral, 0);
-    final diff = (ls.y - rs.y).abs();
-    if (lh != null && rh != null && diff < 15 && (lh.y - rh.y).abs() < 15) return _Feedback('🏆 ALINEACIÓN PERFECTA — Continúa con la respiración', _FeedbackLevel.good, 95);
-    if (diff < 10) return _Feedback('✅ HOMBROS NIVELADOS — El movimiento viene de la columna', _FeedbackLevel.good, 80);
-    if (diff < 25) return _Feedback('📐 Pequeño desbalance — mantén los hombros a la misma altura', _FeedbackLevel.info, 65);
-    return _Feedback('⚠️ HOMBROS DESNIVELADOS — Ambos deben partir del mismo nivel', _FeedbackLevel.warning, 40);
+  _Feedback _analyzeBack(
+    Pose pose,
+    PoseLandmark? leftSh,
+    PoseLandmark? rightSh,
+    PoseLandmark? leftHip,
+    PoseLandmark? rightHip,
+  ) {
+    if (leftSh == null || rightSh == null) {
+      return _Feedback(
+          'Muestra tu torso completo en el encuadre',
+          _FeedbackLevel.neutral, 0);
+    }
+
+    final sw       = _sw(pose);
+    final diffNorm = _shoulderDiffNorm(pose);
+
+    if (leftHip != null && rightHip != null) {
+      final hipDiffNorm = (leftHip.y - rightHip.y).abs() / sw;
+
+      // Postura gato: hombros caen hacia adelante
+      final shAvgY  = (leftSh.y + rightSh.y) / 2;
+      final hipAvgY = (leftHip.y + rightHip.y) / 2;
+      final curvNorm = (shAvgY - hipAvgY) / sw;
+
+      if (diffNorm < 0.10 && hipDiffNorm < 0.10) {
+        return _Feedback(
+            'Alineación perfecta — continúa el movimiento con la respiración',
+            _FeedbackLevel.good, 95);
+      }
+    }
+
+    if (diffNorm < 0.08) {
+      return _Feedback(
+          'Hombros nivelados — el movimiento viene de la columna',
+          _FeedbackLevel.good, 80);
+    }
+
+    if (diffNorm < 0.18) {
+      return _Feedback(
+          'Pequeño desbalance — mantén los hombros a la misma altura',
+          _FeedbackLevel.info, 65);
+    }
+
+    return _Feedback(
+        'Hombros desnivelados — ambos deben partir del mismo nivel',
+        _FeedbackLevel.warning, 40);
   }
 
-  _Feedback _generalFeedback(PoseLandmark? l, PoseLandmark? r) {
-    if (l == null || r == null) return _Feedback('📷 Aléjate para que se vea tu torso completo', _FeedbackLevel.neutral, 0);
-    if ((l.y - r.y).abs() < 15) return _Feedback('✅ DETECTADO — Realiza el ejercicio con control', _FeedbackLevel.good, 85);
-    return _Feedback('📐 Nivela los hombros para una postura simétrica', _FeedbackLevel.info, 60);
+  _Feedback _generalFeedback(
+    Pose pose,
+    PoseLandmark? leftSh,
+    PoseLandmark? rightSh,
+  ) {
+    if (leftSh == null || rightSh == null) {
+      return _Feedback(
+          'Aléjate para que se vea tu torso completo',
+          _FeedbackLevel.neutral, 0);
+    }
+
+    final diffNorm = _shoulderDiffNorm(pose);
+
+    if (diffNorm < 0.10) {
+      return _Feedback(
+          'Detectado — realiza el ejercicio con control y sin apresurarte',
+          _FeedbackLevel.good, 85);
+    }
+
+    return _Feedback(
+        'Nivela los hombros para una postura simétrica',
+        _FeedbackLevel.info, 60);
   }
 
   @override
@@ -537,7 +878,7 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
             )),
           ),
           const SizedBox(height: 16),
-          Container(
+         Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.6),
@@ -545,31 +886,107 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
               border: Border.all(
                 color: _feedbackLevel == _FeedbackLevel.good
                     ? AppTheme.accent.withOpacity(0.6)
-                    : AppTheme.primary.withOpacity(0.4),
+                    : _guidedState == _GuidedState.explaining
+                        ? AppTheme.accentOrange.withOpacity(0.5)
+                        : AppTheme.primary.withOpacity(0.4),
                 width: 1,
               ),
             ),
             child: Column(
               children: [
-                Text(step.title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                // Indicador de estado
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_guidedState == _GuidedState.explaining) ...[
+                      const Icon(Icons.volume_up_rounded,
+                          color: AppTheme.accentOrange, size: 14),
+                      const SizedBox(width: 6),
+                      const Text('Escucha las instrucciones...',
+                          style: TextStyle(
+                              color: AppTheme.accentOrange,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                    ] else if (_guidedState == _GuidedState.detecting) ...[
+                      const Icon(Icons.accessibility_new_rounded,
+                          color: AppTheme.primary, size: 14),
+                      const SizedBox(width: 6),
+                      const Text('Adopta la postura indicada',
+                          style: TextStyle(
+                              color: AppTheme.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                    ] else ...[
+                      const Icon(Icons.check_circle_rounded,
+                          color: AppTheme.accent, size: 14),
+                      const SizedBox(width: 6),
+                      const Text('¡Postura correcta! Mantén...',
+                          style: TextStyle(
+                              color: AppTheme.accent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: _holdProgress,
-                    minHeight: 8,
-                    backgroundColor: Colors.white12,
-                    valueColor: AlwaysStoppedAnimation(
-                      _holdProgress > 0 ? AppTheme.accent : AppTheme.primary,
-                    ),
+                // Título del paso
+                Text(
+                  step.title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _guidedState == _GuidedState.explaining
+                        ? AppTheme.accentOrange
+                        : Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(_feedbackText,
+                // Barra de progreso (solo visible durante hold)
+                if (_guidedState != _GuidedState.explaining) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: _holdProgress,
+                      minHeight: 8,
+                      backgroundColor: Colors.white12,
+                      valueColor: AlwaysStoppedAnimation(
+                        _holdProgress > 0
+                            ? AppTheme.accent
+                            : AppTheme.primary,
+                      ),
+                    ),
+                  ),
+                  if (_holdProgress > 0 && _countdownSeconds > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.timer_outlined,
+                            color: AppTheme.accent, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$_countdownSeconds seg',
+                          style: const TextStyle(
+                            color: AppTheme.accent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+                const SizedBox(height: 10),
+                // Instrucción
+                Text(
+                  _feedbackText,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4)),
+                  style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12.5,
+                      height: 1.4),
+                ),
               ],
             ),
           ),
@@ -803,16 +1220,12 @@ class _SkeletonPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     const connections = [
-      // T invertida: palo vertical nariz → cuello estimado → centro hombros
       [PoseLandmarkType.nose, PoseLandmarkType.leftShoulder],
       [PoseLandmarkType.nose, PoseLandmarkType.rightShoulder],
-      // Barra horizontal de la T: hombro izquierdo → hombro derecho
       [PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder],
-      // Torso
       [PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip],
       [PoseLandmarkType.rightShoulder, PoseLandmarkType.rightHip],
       [PoseLandmarkType.leftHip, PoseLandmarkType.rightHip],
-      // Brazos
       [PoseLandmarkType.leftShoulder, PoseLandmarkType.leftElbow],
       [PoseLandmarkType.leftElbow, PoseLandmarkType.leftWrist],
       [PoseLandmarkType.rightShoulder, PoseLandmarkType.rightElbow],
@@ -825,27 +1238,24 @@ class _SkeletonPainter extends CustomPainter {
       if (a == null || b == null || a.likelihood < 0.3 || b.likelihood < 0.3) continue;
       canvas.drawLine(scale(a), scale(b), bonePaint);
     }
-    // ── Palo vertical de la T: nariz → punto medio entre hombros ─────────────
-    final leftSh  = pose.landmarks[PoseLandmarkType.leftShoulder];
-    final rightSh = pose.landmarks[PoseLandmarkType.rightShoulder];
-    final noseL   = pose.landmarks[PoseLandmarkType.nose];
 
-    if (leftSh != null && rightSh != null && noseL != null &&
-        leftSh.likelihood > 0.3 && rightSh.likelihood > 0.3 && noseL.likelihood > 0.3) {
-      final midShoulderX = (leftSh.x + rightSh.x) / 2;
-      final midShoulderY = (leftSh.y + rightSh.y) / 2;
+    // ── T invertida: nariz → centro hombros ───────────────────────────────────
+    final tLeftSh  = pose.landmarks[PoseLandmarkType.leftShoulder];
+    final tRightSh = pose.landmarks[PoseLandmarkType.rightShoulder];
+    final tNose    = pose.landmarks[PoseLandmarkType.nose];
 
-      // Crear un landmark virtual en el centro de los hombros
+    if (tLeftSh != null && tRightSh != null && tNose != null &&
+        tLeftSh.likelihood > 0.3 && tRightSh.likelihood > 0.3 && tNose.likelihood > 0.3) {
+
+      final midShX = (tLeftSh.x + tRightSh.x) / 2;
+      final midShY = (tLeftSh.y + tRightSh.y) / 2;
       final midShoulder = Offset(
-        (1 - midShoulderX / imageSize.width) * size.width,
-        (midShoulderY / imageSize.height) * size.height,
+        (1 - midShX / imageSize.width) * size.width,
+        (midShY / imageSize.height) * size.height,
       );
-      final nosePos = scale(noseL);
+      final nosePos = scale(tNose);
 
-      // Dibujar línea vertical nariz → centro hombros (palo de la T)
       canvas.drawLine(nosePos, midShoulder, bonePaint);
-
-      // Dibujar punto en el centro de los hombros
       canvas.drawCircle(midShoulder, 6, Paint()
         ..color = skeletonColor
         ..style = PaintingStyle.fill);
@@ -853,15 +1263,82 @@ class _SkeletonPainter extends CustomPainter {
         ..color = Colors.white.withOpacity(0.4)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5);
+
+      // ── Eje central: centro hombros → centro caderas ─────────────────────────
+      final axisLeftHip  = pose.landmarks[PoseLandmarkType.leftHip];
+      final axisRightHip = pose.landmarks[PoseLandmarkType.rightHip];
+
+      if (axisLeftHip != null && axisRightHip != null &&
+          axisLeftHip.likelihood > 0.3 && axisRightHip.likelihood > 0.3) {
+
+        final midHipX = (axisLeftHip.x + axisRightHip.x) / 2;
+        final midHipY = (axisLeftHip.y + axisRightHip.y) / 2;
+        final midHip  = Offset(
+          (1 - midHipX / imageSize.width) * size.width,
+          (midHipY / imageSize.height) * size.height,
+        );
+
+        final axisPaint = Paint()
+          ..color      = skeletonColor.withOpacity(0.5)
+          ..strokeWidth = 1.5
+          ..style      = PaintingStyle.stroke
+          ..strokeCap  = StrokeCap.round;
+
+        // Línea centro hombros → centro caderas
+        canvas.drawLine(midShoulder, midHip, axisPaint);
+
+        // Punto en centro caderas
+        canvas.drawCircle(midHip, 5, Paint()
+          ..color = skeletonColor
+          ..style = PaintingStyle.fill);
+
+        // Línea de referencia vertical punteada
+        final referencePaint = Paint()
+          ..color      = Colors.white.withOpacity(0.15)
+          ..strokeWidth = 1.0
+          ..style      = PaintingStyle.stroke;
+
+        const dashH = 6.0;
+        const dashS = 4.0;
+        double startY = nosePos.dy;
+        final endY    = midHip.dy;
+        final refX    = midShoulder.dx;
+
+        while (startY < endY) {
+          canvas.drawLine(
+            Offset(refX, startY),
+            Offset(refX, (startY + dashH).clamp(startY, endY)),
+            referencePaint,
+          );
+          startY += dashH + dashS;
+        }
+
+        // Curva de Bezier si hay desviación del eje
+        final deviation = (midShoulder.dx - midHip.dx).abs();
+        if (deviation > 15) {
+          final curvePaint = Paint()
+            ..color      = skeletonColor.withOpacity(0.6)
+            ..strokeWidth = 2.0
+            ..style      = PaintingStyle.stroke;
+          final path = Path()
+            ..moveTo(nosePos.dx, nosePos.dy)
+            ..quadraticBezierTo(
+              midShoulder.dx, midShoulder.dy,
+              midHip.dx, midHip.dy,
+            );
+          canvas.drawPath(path, curvePaint);
+        }
+      }
     }
 
+    // ── Joints ────────────────────────────────────────────────────────────────
     for (final lm in pose.landmarks.values) {
       if (lm.likelihood < 0.3) continue;
       final pos = scale(lm);
       canvas.drawCircle(pos, 5, jointPaint);
       canvas.drawCircle(pos, 5, Paint()
-        ..color = Colors.white.withOpacity(0.4)
-        ..style = PaintingStyle.stroke
+        ..color      = Colors.white.withOpacity(0.4)
+        ..style      = PaintingStyle.stroke
         ..strokeWidth = 1);
     }
   }
@@ -928,6 +1405,7 @@ class _BracketPainter extends CustomPainter {
 
 enum _ScreenState { askingPermission, permissionDenied, initializing, active, error }
 enum _FeedbackLevel { good, warning, info, neutral }
+enum _GuidedState { explaining, detecting, holding }
 
 class _Feedback {
   final String text;

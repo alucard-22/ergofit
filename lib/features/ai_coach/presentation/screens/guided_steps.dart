@@ -1,11 +1,5 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-/// Define los pasos guiados para cada ejercicio que tiene IA Coach.
-/// Cada paso tiene:
-/// - title: título corto que aparece en la UI
-/// - instruction: qué debe hacer el usuario
-/// - holdSeconds: cuántos segundos debe mantener la postura correcta
-/// - check: función que evalúa si la postura es correcta usando los landmarks
 class GuidedStep {
   final String title;
   final String instruction;
@@ -20,14 +14,13 @@ class GuidedStep {
   });
 }
 
-/// Retorna los pasos guiados para un ejercicio dado su ID.
-/// Si el ejercicio no tiene guía definida, retorna null.
 List<GuidedStep>? getGuidedSteps(String exerciseId) {
   return switch (exerciseId) {
     'shoulder_rolls'          => _shoulderRolls(),
     'neck_lateral_tilt'       => _neckLateralTilt(),
     'neck_rotation'           => _neckRotation(),
     'neck_chin_tuck'          => _neckChinTuck(),
+    'neck_flexion'            => _neckFlexion(),
     'chest_opener'            => _chestOpener(),
     'back_cat_cow'            => _backCatCow(),
     'wrist_extension_stretch' => _wristExtension(),
@@ -35,7 +28,11 @@ List<GuidedStep>? getGuidedSteps(String exerciseId) {
   };
 }
 
-// ── Helpers de landmarks ──────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  HELPERS NORMALIZADOS
+//  Todos los umbrales son proporciones del ancho de hombros (shoulderWidth).
+//  Esto hace que el algoritmo sea independiente de la distancia a la cámara.
+// ══════════════════════════════════════════════════════════════════════════════
 
 PoseLandmark? _ls(Pose p) => p.landmarks[PoseLandmarkType.leftShoulder];
 PoseLandmark? _rs(Pose p) => p.landmarks[PoseLandmarkType.rightShoulder];
@@ -46,488 +43,711 @@ PoseLandmark? _lw(Pose p) => p.landmarks[PoseLandmarkType.leftWrist];
 PoseLandmark? _rw(Pose p) => p.landmarks[PoseLandmarkType.rightWrist];
 PoseLandmark? _lh(Pose p) => p.landmarks[PoseLandmarkType.leftHip];
 PoseLandmark? _rh(Pose p) => p.landmarks[PoseLandmarkType.rightHip];
+PoseLandmark? _lear(Pose p) => p.landmarks[PoseLandmarkType.leftEar];
+PoseLandmark? _rear(Pose p) => p.landmarks[PoseLandmarkType.rightEar];
 
-double _shoulderDiff(Pose p) {
+/// Ancho entre hombros en píxeles. Es nuestra unidad de referencia.
+double _sw(Pose p) {
   final l = _ls(p); final r = _rs(p);
-  if (l == null || r == null) return 999;
-  return (l.y - r.y).abs();
+  if (l == null || r == null) return 1;
+  return (l.x - r.x).abs().clamp(1.0, double.infinity);
 }
 
+/// Diferencia vertical entre hombros, normalizada por ancho de hombros.
+/// < 0.10 = hombros muy nivelados
+/// < 0.20 = hombros aceptablemente nivelados
+/// > 0.30 = hombros muy desnivelados
+double _shoulderDiffNorm(Pose p) {
+  final l = _ls(p); final r = _rs(p);
+  if (l == null || r == null) return 999;
+  return (l.y - r.y).abs() / _sw(p);
+}
+
+/// Altura promedio de los hombros en píxeles (Y crece hacia abajo).
 double _avgShoulderY(Pose p) {
   final l = _ls(p); final r = _rs(p);
   if (l == null || r == null) return 0;
   return (l.y + r.y) / 2;
 }
 
-double _noseOffsetFromCenter(Pose p) {
+/// Desplazamiento horizontal de la nariz desde el centro de hombros,
+/// normalizado por ancho de hombros.
+/// 0.0 = cabeza centrada
+/// 0.20+ = inclinación lateral visible
+/// 0.35+ = buena inclinación lateral
+double _noseOffsetNorm(Pose p) {
   final n = _nose(p); final l = _ls(p); final r = _rs(p);
   if (n == null || l == null || r == null) return 999;
-  return (n.x - (l.x + r.x) / 2).abs();
+  final centerX = (l.x + r.x) / 2;
+  return (n.x - centerX).abs() / _sw(p);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  SHOULDER ROLLS — Rotación de hombros
+//  SHOULDER ROLLS — normalizado por ancho de hombros
 // ══════════════════════════════════════════════════════════════════════════════
 
 List<GuidedStep> _shoulderRolls() => [
   GuidedStep(
-    title: '🪑 Posición inicial',
-    instruction: 'Siéntate con la espalda recta y los hombros relajados '
-        'a los costados. Mira al frente.',
-    holdSeconds: 1.5,
+    title: 'Posición inicial',
+    instruction: 'Siéntate erguido con los hombros relajados a los costados. '
+        'Mira al frente. Mantén esta posición.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
       final l = _ls(pose); final r = _rs(pose);
       if (l == null || r == null) return false;
-      cal['baseY'] = (l.y + r.y) / 2;
-      return _shoulderDiff(pose) < 35;
+      // Calibrar baseline Y y ancho de hombros
+      cal['baseY'] = _avgShoulderY(pose);
+      cal['sw']    = _sw(pose);
+      // Hombros nivelados: diferencia < 20% del ancho
+      return _shoulderDiffNorm(pose) < 0.20;
     },
   ),
   GuidedStep(
-    title: '⬆️ Eleva los hombros',
-    instruction: 'Sube ambos hombros hacia las orejas '
-        'lo más que puedas. ¡Como encogerte de hombros!',
-    holdSeconds: 1.0,
+    title: 'Eleva los hombros',
+    instruction: 'Sube ambos hombros hacia las orejas. '
+        'Mantén la posición elevada.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
-      final base = cal['baseY'];
-      if (base == null) return false;
-      return _avgShoulderY(pose) < base - 20 && _shoulderDiff(pose) < 40;
+      final baseY = cal['baseY']; final sw = cal['sw'];
+      if (baseY == null || sw == null) return false;
+      // Elevación mínima: 15% del ancho de hombros hacia arriba
+      final elevNorm = (baseY - _avgShoulderY(pose)) / sw;
+      return elevNorm > 0.15 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '🔙 Hombros atrás y abajo',
-    instruction: 'Lleva los hombros hacia atrás y hacia abajo '
-        'completando el círculo. Intenta unir los omóplatos.',
-    holdSeconds: 1.0,
+    title: 'Hombros atrás y abajo',
+    instruction: 'Lleva los hombros hacia atrás y abajo completando el círculo. '
+        'Intenta unir los omóplatos.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
-      final base = cal['baseY'];
-      if (base == null) return false;
-      return _avgShoulderY(pose) >= base - 10 && _shoulderDiff(pose) < 35;
+      final baseY = cal['baseY']; final sw = cal['sw'];
+      if (baseY == null || sw == null) return false;
+      // Regreso al nivel base: diferencia < 8% del ancho
+      final diffFromBase = (_avgShoulderY(pose) - baseY).abs() / sw;
+      return diffFromBase < 0.08 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '⬆️ Eleva de nuevo',
-    instruction: 'Segunda repetición: vuelve a subir los hombros '
-        'hacia las orejas con el mismo movimiento.',
-    holdSeconds: 1.0,
+    title: 'Segunda elevación',
+    instruction: 'Vuelve a subir los hombros hacia las orejas. '
+        'Segundo ciclo — mantén la posición.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
-      final base = cal['baseY'];
-      if (base == null) return false;
-      return _avgShoulderY(pose) < base - 20 && _shoulderDiff(pose) < 40;
+      final baseY = cal['baseY']; final sw = cal['sw'];
+      if (baseY == null || sw == null) return false;
+      final elevNorm = (baseY - _avgShoulderY(pose)) / sw;
+      return elevNorm > 0.15 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '🔙 Completa el círculo',
-    instruction: 'Lleva los hombros hacia atrás y abajo por última vez. '
-        '¡Ya casi terminas!',
-    holdSeconds: 1.0,
+    title: 'Cierre del segundo ciclo',
+    instruction: 'Lleva los hombros hacia atrás y abajo por segunda vez. '
+        'Respira profundo al bajar.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
-      final base = cal['baseY'];
-      if (base == null) return false;
-      return _avgShoulderY(pose) >= base - 10 && _shoulderDiff(pose) < 35;
+      final baseY = cal['baseY']; final sw = cal['sw'];
+      if (baseY == null || sw == null) return false;
+      final diffFromBase = (_avgShoulderY(pose) - baseY).abs() / sw;
+      return diffFromBase < 0.08 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  NECK LATERAL TILT — Inclinación lateral de cuello
+//  NECK LATERAL TILT — normalizado
 // ══════════════════════════════════════════════════════════════════════════════
 
 List<GuidedStep> _neckLateralTilt() => [
   GuidedStep(
-    title: '🪑 Posición inicial',
-    instruction: 'Siéntate erguido. Relaja los hombros hacia abajo, '
-        'lejos de las orejas. Mira al frente.',
-    holdSeconds: 1.5,
+    title: 'Posición inicial',
+    instruction: 'Siéntate erguido. Relaja los hombros. '
+        'Mira al frente con la barbilla paralela al suelo.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
       final l = _ls(pose); final r = _rs(pose); final n = _nose(pose);
       if (l == null || r == null || n == null) return false;
-      cal['baseY'] = (l.y + r.y) / 2;
+      cal['baseY']   = _avgShoulderY(pose);
       cal['centerX'] = (l.x + r.x) / 2;
-      return _shoulderDiff(pose) < 30 && _noseOffsetFromCenter(pose) < 30;
+      cal['sw']      = _sw(pose);
+      // Cabeza centrada: desplazamiento < 15% del ancho de hombros
+      return _shoulderDiffNorm(pose) < 0.20 && _noseOffsetNorm(pose) < 0.15;
     },
   ),
   GuidedStep(
-    title: '➡️ Inclina hacia la derecha',
-    instruction: 'Inclina suavemente la cabeza hacia el hombro derecho. '
-        'No levantes el hombro. Siente el estiramiento al lado izquierdo.',
-    holdSeconds: 2.0,
+    title: 'Inclina hacia la derecha',
+    instruction: 'Lleva la oreja derecha hacia el hombro derecho. '
+        'No levantes el hombro. Mantén 20 segundos.',
+    holdSeconds: 20.0,
     check: (pose, cal) {
-      final n = _nose(pose); final center = cal['centerX'];
-      if (n == null || center == null) return false;
-      // En cámara frontal espejada: derecha del usuario = izquierda en imagen
-      final offset = n.x - center;
-      return offset > 40 && _shoulderDiff(pose) < 40;
+      final n = _nose(pose); final center = cal['centerX']; final sw = cal['sw'];
+      if (n == null || center == null || sw == null) return false;
+      // Desplazamiento lateral > 25% del ancho de hombros
+      final offset = (center - n.x) / sw;
+      return offset > 0.25 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '↩️ Vuelve al centro',
+    title: 'Vuelve al centro',
     instruction: 'Regresa la cabeza al centro lentamente. '
-        'Inhala profundo antes del siguiente movimiento.',
-    holdSeconds: 1.0,
-    check: (pose, cal) => _noseOffsetFromCenter(pose) < 25 && _shoulderDiff(pose) < 35,
+        'Inhala profundo.',
+    holdSeconds: 3.0,
+    check: (pose, cal) =>
+        _noseOffsetNorm(pose) < 0.15 && _shoulderDiffNorm(pose) < 0.25,
   ),
   GuidedStep(
-    title: '⬅️ Inclina hacia la izquierda',
-    instruction: 'Ahora inclina la cabeza hacia el hombro izquierdo. '
-        'Mantén el hombro relajado. Siente el estiramiento al lado derecho.',
-    holdSeconds: 2.0,
+    title: 'Inclina hacia la izquierda',
+    instruction: 'Lleva la oreja izquierda hacia el hombro izquierdo. '
+        'Mantén 20 segundos.',
+    holdSeconds: 20.0,
     check: (pose, cal) {
-      final n = _nose(pose); final center = cal['centerX'];
-      if (n == null || center == null) return false;
-      final offset = center - n.x;
-      return offset > 40 && _shoulderDiff(pose) < 40;
+      final n = _nose(pose); final center = cal['centerX']; final sw = cal['sw'];
+      if (n == null || center == null || sw == null) return false;
+      final offset = (n.x - center) / sw;
+      return offset > 0.25 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '↩️ Vuelve al centro',
+    title: 'Posición final',
     instruction: 'Regresa al centro lentamente. '
-        '¡Excelente trabajo! Has completado el estiramiento.',
-    holdSeconds: 1.0,
-    check: (pose, cal) => _noseOffsetFromCenter(pose) < 25 && _shoulderDiff(pose) < 35,
+        'Ejercicio completado correctamente.',
+    holdSeconds: 3.0,
+    check: (pose, cal) =>
+        _noseOffsetNorm(pose) < 0.15 && _shoulderDiffNorm(pose) < 0.25,
   ),
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  NECK ROTATION — Rotación de cuello
+//  NECK ROTATION — normalizado
 // ══════════════════════════════════════════════════════════════════════════════
 
 List<GuidedStep> _neckRotation() => [
   GuidedStep(
-    title: '🪑 Posición inicial',
-    instruction: 'Siéntate erguido. Mantén la barbilla paralela al suelo. '
-        'Hombros quietos y relajados.',
-    holdSeconds: 1.5,
+    title: 'Posición inicial',
+    instruction: 'Siéntate erguido. Barbilla paralela al suelo. '
+        'Hombros quietos y relajados. Mira al frente.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
-      final n = _nose(pose); final l = _ls(pose); final r = _rs(pose);
-      if (n == null || l == null || r == null) return false;
-      cal['centerX'] = (l.x + r.x) / 2;
-      return _noseOffsetFromCenter(pose) < 30 && _shoulderDiff(pose) < 30;
+      final n    = _nose(pose);
+      final lear = _lear(pose);
+      final rear = _rear(pose);
+      final l    = _ls(pose); final r = _rs(pose);
+      if (n == null || lear == null || rear == null || l == null || r == null) return false;
+      cal['sw']       = _sw(pose);
+      cal['centerX']  = (l.x + r.x) / 2;
+      // Distancia nariz a cada oreja normalizada
+      final distLeft  = (n.x - lear.x).abs();
+      final distRight = (n.x - rear.x).abs();
+      cal['distLeft']  = distLeft;
+      cal['distRight'] = distRight;
+      // Cabeza centrada: ambas distancias similares (diferencia < 20% del ancho)
+      final ratio = (distLeft - distRight).abs() / _sw(pose);
+      return ratio < 0.20 && _shoulderDiffNorm(pose) < 0.20;
     },
   ),
   GuidedStep(
-    title: '➡️ Gira a la derecha',
-    instruction: 'Gira la cabeza lentamente hacia tu hombro derecho '
-        'hasta donde sea cómodo. No fuerces.',
-    holdSeconds: 2.0,
+    title: 'Gira a la derecha',
+    instruction: 'Gira la cabeza despacio hacia tu hombro derecho '
+        'hasta donde sea cómodo. Mantén 15 segundos.',
+    holdSeconds: 15.0,
     check: (pose, cal) {
-      final n = _nose(pose); final center = cal['centerX'];
-      if (n == null || center == null) return false;
-      return (n.x - center) > 50 && _shoulderDiff(pose) < 35;
+      final n    = _nose(pose);
+      final rear = _rear(pose);
+      final lear = _lear(pose);
+      if (n == null || rear == null || lear == null) return false;
+      final sw = cal['sw'] ?? 1.0;
+      // Al girar a la derecha: oreja derecha se acerca a la nariz,
+      // oreja izquierda se aleja. La diferencia debe ser > 25% del ancho.
+      final distRight = (n.x - rear.x).abs();
+      final distLeft  = (n.x - lear.x).abs();
+      final asymmetry = (distLeft - distRight) / sw;
+      return asymmetry > 0.25 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '↩️ Vuelve al centro',
-    instruction: 'Regresa al centro con calma. '
-        'Respira profundo.',
-    holdSeconds: 1.0,
-    check: (pose, cal) => _noseOffsetFromCenter(pose) < 25,
+    title: 'Vuelve al centro',
+    instruction: 'Regresa al centro con calma. Respira profundo.',
+    holdSeconds: 3.0,
+    check: (pose, cal) {
+      final n    = _nose(pose);
+      final lear = _lear(pose);
+      final rear = _rear(pose);
+      if (n == null || lear == null || rear == null) return false;
+      final sw = cal['sw'] ?? 1.0;
+      final distLeft  = (n.x - lear.x).abs();
+      final distRight = (n.x - rear.x).abs();
+      final ratio = (distLeft - distRight).abs() / sw;
+      return ratio < 0.20;
+    },
   ),
   GuidedStep(
-    title: '⬅️ Gira a la izquierda',
+    title: 'Gira a la izquierda',
     instruction: 'Gira la cabeza hacia tu hombro izquierdo. '
-        'Mismo rango que el lado derecho.',
-    holdSeconds: 2.0,
+        'Mantén 15 segundos.',
+    holdSeconds: 15.0,
     check: (pose, cal) {
-      final n = _nose(pose); final center = cal['centerX'];
-      if (n == null || center == null) return false;
-      return (center - n.x) > 50 && _shoulderDiff(pose) < 35;
+      final n    = _nose(pose);
+      final rear = _rear(pose);
+      final lear = _lear(pose);
+      if (n == null || rear == null || lear == null) return false;
+      final sw = cal['sw'] ?? 1.0;
+      // Al girar a la izquierda: oreja izquierda se acerca,
+      // oreja derecha se aleja.
+      final distRight = (n.x - rear.x).abs();
+      final distLeft  = (n.x - lear.x).abs();
+      final asymmetry = (distRight - distLeft) / sw;
+      return asymmetry > 0.25 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '↩️ Centro y relaja',
-    instruction: 'Vuelve al centro y baja suavemente '
-        'la barbilla hacia el pecho por 3 segundos para cerrar.',
-    holdSeconds: 1.0,
-    check: (pose, cal) => _noseOffsetFromCenter(pose) < 25,
+    title: 'Posición final',
+    instruction: 'Vuelve al centro. Baja suavemente la barbilla '
+        'hacia el pecho por 3 segundos para cerrar.',
+    holdSeconds: 3.0,
+    check: (pose, cal) {
+      final n    = _nose(pose);
+      final lear = _lear(pose);
+      final rear = _rear(pose);
+      if (n == null || lear == null || rear == null) return false;
+      final sw = cal['sw'] ?? 1.0;
+      final distLeft  = (n.x - lear.x).abs();
+      final distRight = (n.x - rear.x).abs();
+      final ratio = (distLeft - distRight).abs() / sw;
+      return ratio < 0.20;
+    },
   ),
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  NECK CHIN TUCK — Retracción de mentón
+//  NECK CHIN TUCK — normalizado
 // ══════════════════════════════════════════════════════════════════════════════
 
 List<GuidedStep> _neckChinTuck() => [
   GuidedStep(
-    title: '🪑 Posición inicial',
-    instruction: 'Siéntate mirando al frente. '
-        'Relaja los hombros. Elige un punto fijo al frente a la altura de tus ojos.',
-    holdSeconds: 1.5,
+    title: 'Posición inicial',
+    instruction: 'Siéntate mirando al frente con los hombros relajados. '
+        'Elige un punto fijo a la altura de los ojos.',
+    holdSeconds: 3.0,
+    check: (pose, cal) {
+      final n = _nose(pose); final l = _ls(pose); final r = _rs(pose);
+      if (n == null || l == null || r == null) return false;
+      cal['noseY']   = n.y;
+      cal['centerX'] = (l.x + r.x) / 2;
+      cal['sw']      = _sw(pose);
+      return _shoulderDiffNorm(pose) < 0.20 && _noseOffsetNorm(pose) < 0.20;
+    },
+  ),
+  GuidedStep(
+    title: 'Primera retracción — 5 seg',
+    instruction: 'Sin bajar la cabeza, lleva el mentón hacia atrás '
+        'como haciendo doble papada. Mantén 5 segundos.',
+    holdSeconds: 5.0,
+    check: (pose, cal) =>
+        _noseOffsetNorm(pose) < 0.20 && _shoulderDiffNorm(pose) < 0.25,
+  ),
+  GuidedStep(
+    title: 'Suelta',
+    instruction: 'Regresa a la posición normal. '
+        'Prepárate para la segunda retracción.',
+    holdSeconds: 2.0,
+    check: (pose, cal) =>
+        _shoulderDiffNorm(pose) < 0.25 && _noseOffsetNorm(pose) < 0.20,
+  ),
+  GuidedStep(
+    title: 'Segunda retracción — 5 seg',
+    instruction: 'Vuelve a llevar el mentón hacia atrás. '
+        'Mantén 5 segundos más.',
+    holdSeconds: 5.0,
+    check: (pose, cal) =>
+        _noseOffsetNorm(pose) < 0.20 && _shoulderDiffNorm(pose) < 0.25,
+  ),
+  GuidedStep(
+    title: 'Tercera retracción — 5 seg',
+    instruction: 'Una última retracción. Mantén 5 segundos. '
+        'Cada repetición fortalece los músculos cervicales.',
+    holdSeconds: 5.0,
+    check: (pose, cal) =>
+        _noseOffsetNorm(pose) < 0.20 && _shoulderDiffNorm(pose) < 0.25,
+  ),
+];
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  NECK FLEXION — normalizado
+// ══════════════════════════════════════════════════════════════════════════════
+
+List<GuidedStep> _neckFlexion() => [
+  GuidedStep(
+    title: 'Posición inicial',
+    instruction: 'Siéntate erguido mirando al frente. '
+        'Relaja los hombros. Barbilla paralela al suelo.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
       final n = _nose(pose); final l = _ls(pose); final r = _rs(pose);
       if (n == null || l == null || r == null) return false;
       cal['noseY'] = n.y;
-      cal['centerX'] = (l.x + r.x) / 2;
-      return _shoulderDiff(pose) < 35 && _noseOffsetFromCenter(pose) < 30;
+      cal['sw']    = _sw(pose);
+      return _shoulderDiffNorm(pose) < 0.20 && _noseOffsetNorm(pose) < 0.20;
     },
   ),
   GuidedStep(
-    title: '↩️ Retrae el mentón',
-    instruction: 'Sin bajar la cabeza, lleva el mentón hacia atrás '
-        'como si quisieras hacer una doble papada. '
-        'Sientes elongación en la nuca.',
-    holdSeconds: 2.0,
+    title: 'Baja el mentón',
+    instruction: 'Baja lentamente el mentón hacia el pecho. '
+        'La gravedad hace el trabajo.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
-      final n = _nose(pose); final baseY = cal['noseY'];
-      if (n == null || baseY == null) return false;
-      // La nariz se mueve ligeramente hacia atrás (en imagen: se aleja de la cámara)
-      // Detectamos que los hombros siguen nivelados y la cabeza está centrada
-      return _noseOffsetFromCenter(pose) < 35 && _shoulderDiff(pose) < 30;
+      final n = _nose(pose); final baseY = cal['noseY']; final sw = cal['sw'];
+      if (n == null || baseY == null || sw == null) return false;
+      // Nariz baja > 15% del ancho de hombros
+      final dropNorm = (n.y - baseY) / sw;
+      return dropNorm > 0.15 && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '➡️ Suelta y repite',
-    instruction: 'Regresa a posición normal. '
-        'Prepárate para la segunda retracción.',
-    holdSeconds: 1.0,
-    check: (pose, cal) => _shoulderDiff(pose) < 35 && _noseOffsetFromCenter(pose) < 30,
+    title: 'Mantén 20 segundos',
+    instruction: 'Mentón hacia el pecho. Respira profundo y siente '
+        'el estiramiento en la nuca. Mantén 20 segundos.',
+    holdSeconds: 20.0,
+    check: (pose, cal) {
+      final n = _nose(pose); final baseY = cal['noseY']; final sw = cal['sw'];
+      if (n == null || baseY == null || sw == null) return false;
+      final dropNorm = (n.y - baseY) / sw;
+      return dropNorm > 0.15 && _shoulderDiffNorm(pose) < 0.25;
+    },
   ),
   GuidedStep(
-    title: '↩️ Segunda retracción',
-    instruction: 'Vuelve a llevar el mentón hacia atrás. '
-        'Cada vez que lo haces mejoras tu postura cervical.',
-    holdSeconds: 2.0,
-    check: (pose, cal) =>
-        _noseOffsetFromCenter(pose) < 35 && _shoulderDiff(pose) < 30,
+    title: 'Regresa al centro',
+    instruction: 'Sube la cabeza lentamente. Haz una pausa.',
+    holdSeconds: 3.0,
+    check: (pose, cal) {
+      final n = _nose(pose); final baseY = cal['noseY']; final sw = cal['sw'];
+      if (n == null || baseY == null || sw == null) return false;
+      final diffNorm = (n.y - baseY).abs() / sw;
+      return diffNorm < 0.10 && _shoulderDiffNorm(pose) < 0.25;
+    },
   ),
   GuidedStep(
-    title: '✅ Posición final',
-    instruction: 'Mantén la posición corregida con el mentón ligeramente '
-        'retraído. Esta es la postura correcta para trabajar.',
-    holdSeconds: 2.0,
-    check: (pose, cal) =>
-        _shoulderDiff(pose) < 35 && _noseOffsetFromCenter(pose) < 30,
+    title: 'Segunda flexión — 20 seg',
+    instruction: 'Vuelve a bajar el mentón hacia el pecho. '
+        'Mantén otros 20 segundos respirando profundo.',
+    holdSeconds: 20.0,
+    check: (pose, cal) {
+      final n = _nose(pose); final baseY = cal['noseY']; final sw = cal['sw'];
+      if (n == null || baseY == null || sw == null) return false;
+      final dropNorm = (n.y - baseY) / sw;
+      return dropNorm > 0.15 && _shoulderDiffNorm(pose) < 0.25;
+    },
+  ),
+  GuidedStep(
+    title: 'Posición final',
+    instruction: 'Regresa al centro lentamente. '
+        'Barbilla paralela al suelo.',
+    holdSeconds: 3.0,
+    check: (pose, cal) {
+      final n = _nose(pose); final baseY = cal['noseY']; final sw = cal['sw'];
+      if (n == null || baseY == null || sw == null) return false;
+      final diffNorm = (n.y - baseY).abs() / sw;
+      return diffNorm < 0.10 && _shoulderDiffNorm(pose) < 0.25;
+    },
   ),
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  CHEST OPENER — Apertura de pecho
+//  CHEST OPENER 
 // ══════════════════════════════════════════════════════════════════════════════
 
 List<GuidedStep> _chestOpener() => [
   GuidedStep(
-    title: '🪑 Posición inicial',
+    title: 'Posición inicial',
     instruction: 'Siéntate al borde de la silla. '
-        'Pies planos en el suelo. Espalda recta.',
-    holdSeconds: 1.5,
+        'Pies planos en el suelo. Espalda recta. '
+        'Brazos relajados a los costados.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
       final l = _ls(pose); final r = _rs(pose);
       if (l == null || r == null) return false;
       cal['baseY'] = (l.y + r.y) / 2;
-      cal['baseWidth'] = (l.x - r.x).abs();
-      return _shoulderDiff(pose) < 35;
-    },
-  ),
-  GuidedStep(
-    title: '🤝 Lleva los codos atrás',
-    instruction: 'Entrelaza los dedos detrás de la nuca. '
-        'Lleva los codos hacia atrás abriendo el pecho hacia adelante.',
-    holdSeconds: 2.0,
-    check: (pose, cal) {
+      cal['sw']    = _sw(pose);
+      // Hombros nivelados y brazos abajo
       final le = _le(pose); final re = _re(pose);
-      final l = _ls(pose); final r = _rs(pose);
-      if (le == null || re == null || l == null || r == null) return false;
-      // Codos deben estar más separados que los hombros (apertura)
-      final elbowWidth = (le.x - re.x).abs();
-      final shoulderWidth = (l.x - r.x).abs();
-      return elbowWidth > shoulderWidth * 0.8 && _shoulderDiff(pose) < 40;
+      if (le == null || re == null) return false;
+      // Codos deben estar por debajo de los hombros
+      final lElbowBelow = le.y > l.y;
+      final rElbowBelow = re.y > r.y;
+      return _shoulderDiffNorm(pose) < 0.20 && lElbowBelow && rElbowBelow;
     },
   ),
   GuidedStep(
-    title: '🦅 Mantén la apertura',
-    instruction: 'Inhala profundo mientras mantienes el pecho abierto. '
-        'Con cada exhalación siente cómo se relajan más los hombros hacia atrás.',
+    title: 'Lleva las manos detrás de la espalda',
+    instruction: 'Lleva ambas manos detrás de la espalda baja '
+        'y entrelaza los dedos. Los codos apuntan hacia afuera.',
     holdSeconds: 3.0,
     check: (pose, cal) {
       final le = _le(pose); final re = _re(pose);
-      final l = _ls(pose); final r = _rs(pose);
-      if (le == null || re == null || l == null || r == null) return false;
-      final elbowWidth = (le.x - re.x).abs();
-      final shoulderWidth = (l.x - r.x).abs();
-      return elbowWidth > shoulderWidth * 0.8;
+      final lw = _lw(pose); final rw = _rw(pose);
+      final l  = _ls(pose); final r  = _rs(pose);
+      if (le == null || re == null || lw == null || rw == null ||
+          l == null || r == null) return false;
+      final sw = cal['sw'] ?? _sw(pose);
+      // Muñecas deben estar detrás del cuerpo (más abajo que los hombros)
+      // y codos apuntan hacia afuera (más separados que hombros)
+      final wristsBelow  = lw.y > l.y && rw.y > r.y;
+      final elbowWidth   = (le.x - re.x).abs();
+      final shoulderWidth = sw;
+      final elbowsWide   = elbowWidth > shoulderWidth * 0.60;
+      return wristsBelow && elbowsWide && _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '⬇️ Baja los brazos',
-    instruction: 'Suelta los dedos y baja los brazos lentamente. '
-        'Nota la diferencia en tu postura.',
-    holdSeconds: 1.5,
+    title: 'Abre el pecho — lleva hombros atrás',
+    instruction: 'Inhala y lleva los hombros hacia atrás. '
+        'El pecho se abre hacia adelante. '
+        'Los brazos entrelazados bajan hacia el suelo.',
+    holdSeconds: 5.0,
     check: (pose, cal) {
       final le = _le(pose); final re = _re(pose);
-      if (le == null || re == null) return false;
-      // Codos vuelven a estar más bajos que los hombros
-      final l = _ls(pose); final r = _rs(pose);
-      if (l == null || r == null) return false;
-      return le.y > l.y && re.y > r.y;
+      final lw = _lw(pose); final rw = _rw(pose);
+      final l  = _ls(pose); final r  = _rs(pose);
+      if (le == null || re == null || lw == null || rw == null ||
+          l == null || r == null) return false;
+      final sw         = cal['sw'] ?? _sw(pose);
+      final baseY      = cal['baseY'] ?? (l.y + r.y) / 2;
+      // Muñecas bien abajo (> 30% del ancho de hombros por debajo de hombros)
+      final lWristBelow = (lw.y - l.y) / sw > 0.30;
+      final rWristBelow = (rw.y - r.y) / sw > 0.30;
+      // Codos apuntan hacia afuera (> 60% del ancho de hombros)
+      final elbowWidth  = (le.x - re.x).abs();
+      final elbowsWide  = elbowWidth / sw > 0.60;
+      // Hombros nivelados
+      final shouldersOk = _shoulderDiffNorm(pose) < 0.25;
+      return lWristBelow && rWristBelow && elbowsWide && shouldersOk;
     },
   ),
   GuidedStep(
-    title: '✅ Postura corregida',
-    instruction: 'Mantén esta postura con el pecho ligeramente elevado. '
-        '¡Este es el efecto del ejercicio!',
-    holdSeconds: 2.0,
-    check: (pose, cal) => _shoulderDiff(pose) < 40,
+    title: 'Mantén 20 segundos',
+    instruction: 'Mantén el pecho abierto y los hombros atrás. '
+        'Con cada inhalación abre más. Mantén 20 segundos.',
+    holdSeconds: 20.0,
+    check: (pose, cal) {
+      final le = _le(pose); final re = _re(pose);
+      final lw = _lw(pose); final rw = _rw(pose);
+      final l  = _ls(pose); final r  = _rs(pose);
+      if (le == null || re == null || lw == null || rw == null ||
+          l == null || r == null) return false;
+      final sw          = cal['sw'] ?? _sw(pose);
+      final lWristBelow = (lw.y - l.y) / sw > 0.30;
+      final rWristBelow = (rw.y - r.y) / sw > 0.30;
+      final elbowWidth  = (le.x - re.x).abs();
+      final elbowsWide  = elbowWidth / sw > 0.60;
+      return lWristBelow && rWristBelow && elbowsWide;
+    },
+  ),
+ GuidedStep(
+    title: 'Baja los brazos',
+    instruction: 'Suelta los dedos y baja los brazos lentamente '
+        'a los costados. Respira profundo.',
+    holdSeconds: 3.0,
+    check: (pose, cal) {
+      final l = _ls(pose); final r = _rs(pose);
+      if (l == null || r == null) return false;
+      // Solo verificamos que el usuario sigue en encuadre
+      // con hombros visibles y razonablemente nivelados
+      return _shoulderDiffNorm(pose) < 0.30;
+    },
   ),
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  BACK CAT COW — Gato-vaca en silla
+//  BACK CAT COW
 // ══════════════════════════════════════════════════════════════════════════════
 
 List<GuidedStep> _backCatCow() => [
   GuidedStep(
-    title: '🪑 Posición neutral',
-    instruction: 'Siéntate al borde de la silla. Pies en el suelo. '
-        'Manos sobre las rodillas. Espalda en posición neutral.',
-    holdSeconds: 1.5,
+    title: 'Posición neutral',
+    instruction: 'Siéntate al borde de la silla con los pies planos '
+        'en el suelo. Manos sobre las rodillas. '
+        'Espalda en posición neutral.',
+    holdSeconds: 3.0,
     check: (pose, cal) {
       final l = _ls(pose); final r = _rs(pose);
-      final lh = _lh(pose); final rh = _rh(pose);
-      if (l == null || r == null || lh == null || rh == null) return false;
+      if (l == null || r == null) return false;
       cal['shoulderY'] = (l.y + r.y) / 2;
-      cal['hipY'] = (lh.y + rh.y) / 2;
-      return _shoulderDiff(pose) < 35;
+      cal['sw']        = _sw(pose);
+      cal['swBase']    = _sw(pose);
+      return _shoulderDiffNorm(pose) < 0.20;
     },
   ),
   GuidedStep(
-    title: '🐄 Posición VACA — arquea',
-    instruction: 'Inhala: arquea la espalda hacia adelante, '
-        'saca el pecho y lleva la mirada ligeramente hacia arriba. '
+    title: 'Posición VACA',
+    instruction: 'Inhala profundo y arquea la espalda hacia adelante. '
+        'Saca el pecho y lleva los hombros hacia atrás y arriba. '
         'La pelvis se inclina hacia adelante.',
-    holdSeconds: 2.0,
+    holdSeconds: 4.0,
     check: (pose, cal) {
       final l = _ls(pose); final r = _rs(pose);
-      final baseY = cal['shoulderY'];
-      if (l == null || r == null || baseY == null) return false;
-      final currentY = (l.y + r.y) / 2;
-      // En posición vaca los hombros se llevan hacia atrás y arriba
-      return currentY < baseY - 15 && _shoulderDiff(pose) < 40;
+      if (l == null || r == null) return false;
+      final baseY  = cal['shoulderY'] ?? (l.y + r.y) / 2;
+      final swBase = cal['swBase']    ?? _sw(pose);
+      final sw     = cal['sw']        ?? _sw(pose);
+
+      // En posición vaca:
+      // 1. Hombros suben (Y disminuye) > 8% del ancho base
+      final elevNorm = (baseY - (l.y + r.y) / 2) / swBase;
+
+      // 2. Hombros se abren un poco más (ancho aumenta)
+      final openNorm = (_sw(pose) - swBase) / swBase;
+
+      // Cualquiera de los dos indicadores válido
+      return (elevNorm > 0.08 || openNorm > 0.05) &&
+             _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '🐱 Posición GATO — redondea',
-    instruction: 'Exhala: redondea la espalda hacia afuera, '
-        'mete el ombligo y lleva la mirada hacia abajo. '
-        'La pelvis se inclina hacia atrás.',
-    holdSeconds: 2.0,
+    title: 'Posición GATO',
+    instruction: 'Exhala completamente y redondea la espalda. '
+        'Mete el ombligo hacia adentro. '
+        'Los hombros caen hacia adelante y se acercan entre sí.',
+    holdSeconds: 4.0,
     check: (pose, cal) {
       final l = _ls(pose); final r = _rs(pose);
-      final baseY = cal['shoulderY'];
-      if (l == null || r == null || baseY == null) return false;
-      final currentY = (l.y + r.y) / 2;
-      // En posición gato los hombros caen hacia adelante
-      return currentY > baseY + 15;
+      if (l == null || r == null) return false;
+      final baseY  = cal['shoulderY'] ?? (l.y + r.y) / 2;
+      final swBase = cal['swBase']    ?? _sw(pose);
+
+      // En posición gato:
+      // 1. Hombros bajan (Y aumenta) > 8% del ancho base
+      final dropNorm = ((l.y + r.y) / 2 - baseY) / swBase;
+
+      // 2. Hombros se cierran (ancho disminuye)
+      final closeNorm = (swBase - _sw(pose)) / swBase;
+
+      return (dropNorm > 0.08 || closeNorm > 0.05) &&
+             _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '🐄 Segunda vez VACA',
+    title: 'VACA — segundo ciclo',
     instruction: 'Inhala de nuevo y arquea la espalda. '
-        'Cada ciclo mejora la movilidad de tu columna.',
-    holdSeconds: 2.0,
+        'Lleva el pecho hacia adelante y los hombros hacia atrás.',
+    holdSeconds: 4.0,
     check: (pose, cal) {
       final l = _ls(pose); final r = _rs(pose);
-      final baseY = cal['shoulderY'];
-      if (l == null || r == null || baseY == null) return false;
-      return (l.y + r.y) / 2 < baseY - 15;
+      if (l == null || r == null) return false;
+      final baseY  = cal['shoulderY'] ?? (l.y + r.y) / 2;
+      final swBase = cal['swBase']    ?? _sw(pose);
+      final elevNorm = (baseY - (l.y + r.y) / 2) / swBase;
+      final openNorm = (_sw(pose) - swBase) / swBase;
+      return (elevNorm > 0.08 || openNorm > 0.05) &&
+             _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '🐱 Segunda vez GATO',
-    instruction: 'Exhala y redondea. Quédate aquí 2 segundos '
-        'sintiendo el estiramiento en toda la columna.',
-    holdSeconds: 2.0,
+    title: 'GATO — segundo ciclo',
+    instruction: 'Exhala y redondea la espalda por última vez. '
+        'Siente el estiramiento en toda la columna.',
+    holdSeconds: 4.0,
     check: (pose, cal) {
       final l = _ls(pose); final r = _rs(pose);
-      final baseY = cal['shoulderY'];
-      if (l == null || r == null || baseY == null) return false;
-      return (l.y + r.y) / 2 > baseY + 15;
+      if (l == null || r == null) return false;
+      final baseY  = cal['shoulderY'] ?? (l.y + r.y) / 2;
+      final swBase = cal['swBase']    ?? _sw(pose);
+      final dropNorm  = ((l.y + r.y) / 2 - baseY) / swBase;
+      final closeNorm = (swBase - _sw(pose)) / swBase;
+      return (dropNorm > 0.08 || closeNorm > 0.05) &&
+             _shoulderDiffNorm(pose) < 0.25;
     },
   ),
   GuidedStep(
-    title: '↩️ Posición neutral',
+    title: 'Posición neutral final',
     instruction: 'Regresa a la posición neutral. '
-        'Siente la diferencia — tu columna debería sentirse más libre.',
-    holdSeconds: 1.5,
-    check: (pose, cal) => _shoulderDiff(pose) < 35,
+        'Respira profundo y siente tu columna más libre.',
+    holdSeconds: 3.0,
+    check: (pose, cal) => _shoulderDiffNorm(pose) < 0.25,
   ),
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  WRIST EXTENSION STRETCH — Estiramiento de muñecas
+//  WRIST EXTENSION STRETCH
 // ══════════════════════════════════════════════════════════════════════════════
 
 List<GuidedStep> _wristExtension() => [
   GuidedStep(
-    title: '🪑 Posición inicial',
+    title: 'Posición inicial',
     instruction: 'Siéntate erguido. Extiende el brazo derecho '
         'hacia adelante paralelo al suelo.',
-    holdSeconds: 1.5,
-    check: (pose, cal) {
-      final le = _le(pose); final lw = _lw(pose);
-      if (le == null || lw == null) return false;
-      cal['baseY'] = (le.y + lw.y) / 2;
-      // Verificar que el brazo está relativamente extendido
-      final len = (le.x - lw.x) * (le.x - lw.x) + (le.y - lw.y) * (le.y - lw.y);
-      return len > 800;
-    },
-  ),
-  GuidedStep(
-    title: '🖐️ Palma hacia afuera',
-    instruction: 'Gira la muñeca para que la palma mire hacia afuera '
-        '(gesto de "stop"). Mantén el codo estirado.',
-    holdSeconds: 2.0,
-    check: (pose, cal) {
-      final le = _le(pose); final lw = _lw(pose);
-      if (le == null || lw == null) return false;
-      final len = (le.x - lw.x) * (le.x - lw.x) + (le.y - lw.y) * (le.y - lw.y);
-      return len > 1000;
-    },
-  ),
-  GuidedStep(
-    title: '↩️ Jala los dedos hacia ti',
-    instruction: 'Con la otra mano, jala suavemente los dedos '
-        'hacia tu cuerpo. Siente el estiramiento en la palma y el antebrazo.',
     holdSeconds: 3.0,
     check: (pose, cal) {
       final le = _le(pose); final lw = _lw(pose);
-      final re = _re(pose); final rw = _rw(pose);
-      if (le == null || lw == null || re == null || rw == null) return false;
-      // Ambos brazos activos
-      final leftLen = (le.x - lw.x) * (le.x - lw.x) + (le.y - lw.y) * (le.y - lw.y);
-      return leftLen > 800;
+      final l  = _ls(pose); final r  = _rs(pose);
+      if (le == null || lw == null || l == null || r == null) return false;
+      // Longitud del antebrazo normalizada por ancho de hombros
+      final armLen = ((le.x - lw.x) * (le.x - lw.x) +
+                      (le.y - lw.y) * (le.y - lw.y));
+      cal['armLen'] = armLen;
+      cal['sw']     = _sw(pose);
+      // Brazo extendido si longitud > 40% del ancho de hombros al cuadrado
+      return armLen > (_sw(pose) * _sw(pose) * 0.16);
     },
   ),
   GuidedStep(
-    title: '⬇️ Flexión de muñeca',
-    instruction: 'Ahora flexiona la muñeca hacia abajo '
-        '(dedos apuntando al suelo) y jala los dedos hacia ti.',
+    title: 'Palma hacia afuera',
+    instruction: 'Gira la muñeca con la palma mirando hacia afuera. '
+        'Codo estirado.',
     holdSeconds: 3.0,
     check: (pose, cal) {
       final le = _le(pose); final lw = _lw(pose);
       if (le == null || lw == null) return false;
-      // La muñeca está más abajo que el codo
-      return lw.y > le.y + 20;
+      final sw = cal['sw'] ?? 1.0;
+      final armLen = ((le.x - lw.x) * (le.x - lw.x) +
+                      (le.y - lw.y) * (le.y - lw.y));
+      return armLen > (sw * sw * 0.20);
     },
   ),
   GuidedStep(
-    title: '🔄 Cambia de brazo',
-    instruction: 'Ahora extiende el brazo izquierdo. '
+    title: 'Estiramiento extensión — 20 seg',
+    instruction: 'Con la otra mano, jala suavemente los dedos hacia tu cuerpo. '
+        'Siente el estiramiento. Mantén 20 segundos.',
+    holdSeconds: 20.0,
+    check: (pose, cal) {
+      final le = _le(pose); final lw = _lw(pose);
+      if (le == null || lw == null) return false;
+      final sw = cal['sw'] ?? 1.0;
+      final armLen = ((le.x - lw.x) * (le.x - lw.x) +
+                      (le.y - lw.y) * (le.y - lw.y));
+      return armLen > (sw * sw * 0.16);
+    },
+  ),
+  GuidedStep(
+    title: 'Flexión de muñeca — 20 seg',
+    instruction: 'Flexiona la muñeca hacia abajo y jala los dedos. '
+        'Mantén 20 segundos.',
+    holdSeconds: 20.0,
+    check: (pose, cal) {
+      final le = _le(pose); final lw = _lw(pose);
+      if (le == null || lw == null) return false;
+      final sw = cal['sw'] ?? 1.0;
+      // Muñeca más abajo que el codo en > 10% del ancho de hombros
+      return (lw.y - le.y) / sw > 0.10;
+    },
+  ),
+  GuidedStep(
+    title: 'Cambia de brazo',
+    instruction: 'Extiende el brazo izquierdo. '
         'Repite el mismo estiramiento en la muñeca izquierda.',
-    holdSeconds: 2.0,
+    holdSeconds: 3.0,
     check: (pose, cal) {
       final re = _re(pose); final rw = _rw(pose);
       if (re == null || rw == null) return false;
-      final len = (re.x - rw.x) * (re.x - rw.x) + (re.y - rw.y) * (re.y - rw.y);
-      return len > 800;
+      final sw = cal['sw'] ?? 1.0;
+      final armLen = ((re.x - rw.x) * (re.x - rw.x) +
+                      (re.y - rw.y) * (re.y - rw.y));
+      return armLen > (sw * sw * 0.16);
     },
   ),
   GuidedStep(
-    title: '✅ Sacude las manos',
+    title: 'Sacude las manos',
     instruction: 'Sacude ambas manos durante 10 segundos '
-        'para activar la circulación. ¡Ejercicio completado!',
-    holdSeconds: 2.0,
-    check: (pose, cal) {
-      // Solo verificamos que el usuario está en encuadre
-      return _ls(pose) != null && _rs(pose) != null;
-    },
+        'para activar la circulación.',
+    holdSeconds: 3.0,
+    check: (pose, cal) => _ls(pose) != null && _rs(pose) != null,
   ),
 ];
